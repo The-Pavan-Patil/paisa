@@ -1,17 +1,16 @@
+import "@/lib/polyfills/node-localstorage-bootstrap";
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 import type { DbClient } from "@/types/supabase";
+import { requireSupabaseEnv } from "@/lib/supabase/env";
 
 export async function createClient(): Promise<DbClient> {
   const cookieStore = await cookies();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  }
+  const { url, anonKey } = requireSupabaseEnv();
 
-  return createServerClient<Database>(url, key, {
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
