@@ -1,0 +1,11 @@
+---
+description: FinTrack UI and UX conventions
+globs: "**/*.{tsx,css}"
+---
+
+# FinTrack UI
+
+- Use shadcn/ui primitives and Tailwind; **monochrome** palette only (neutral zinc/slate scale)—no decorative finance clichés.
+- Tables should show **source** (manual vs import) and **last modified** where the PRD calls for it.
+- Prefer **sheets/drawers** for import review flows, not deep modal stacks.
+- Empty states must tell the user the next action.

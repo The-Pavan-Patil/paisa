@@ -1,0 +1,11 @@
+---
+description: FinTrack database, RLS, and Supabase conventions
+globs: "**/*.{ts,tsx,sql}"
+---
+
+# FinTrack database
+
+- Every user-owned table has Row Level Security enabled; policies restrict rows to `auth.uid() = user_id` (or ownership via `profiles.id`).
+- Migrations live in `supabase/migrations/`; prefer explicit constraints and indexes (unique per user/month for salary, dedup keys for imports).
+- Do not bypass RLS with the service role in user-facing code paths; server routes use the user session client unless running a documented admin job.
+- Never store secret API keys in the database in plaintext for client consumption; server env only.

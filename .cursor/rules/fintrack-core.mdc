@@ -1,0 +1,15 @@
+---
+description: FinTrack India core product and calculation rules
+globs: "**/*.{ts,tsx}"
+---
+
+# FinTrack core
+
+- Salary-first personal finance tracker for India. Fixed salary, additional credits, investments, expenses, and computed remaining balance are distinct concepts—do not merge them in code or schema without a decision-log entry.
+- Canonical month summary (derived, never manually edited for remaining balance):
+
+  `remaining = salary + additionalCredits + carryForwardIn - investments - expenses`
+
+- Month close must be idempotent: closing the same month twice must not duplicate carry-forward.
+- Month reopen must support impact preview before recalculation (see domain services).
+- Never change these formulas without updating PRD-aligned tests and `notes/decision-log.md`.

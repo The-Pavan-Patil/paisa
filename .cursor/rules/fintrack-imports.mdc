@@ -1,0 +1,11 @@
+---
+description: FinTrack bank import and Account Aggregator staging rules
+globs: "**/{imports,integrations,setu}/**/*.{ts,tsx}"
+---
+
+# FinTrack imports
+
+- `imported_transactions` is staging only: rows do not affect ledgers until the user resolves them (expense, credit, investment, ignore).
+- Every imported row must have a stable `upstream_txn_id` or deterministic dedup signature; batches are undoable.
+- Do not assume Setu API field shapes from memory—use official docs and typed adapters in `lib/integrations/setu/`.
+- Classification and confidence scores live on staging rows; resolution writes ledger entries and links back to staging.
