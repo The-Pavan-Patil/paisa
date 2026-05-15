@@ -10,13 +10,29 @@ export type InvestmentKind =
   | "cash_carry_forward"
   | "other";
 
-export type LedgerSource = "manual" | "import";
+export type LedgerSource = "manual" | "import" | "statement_import";
 
-export type ImportBatchStatus = "fetched" | "processing" | "completed" | "failed";
+export type ImportBatchStatus =
+  | "fetched"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "reviewing"
+  | "reviewed"
+  | "committed";
 
 export type ImportedReviewStatus = "pending" | "imported" | "skipped" | "duplicate" | "ignored";
 
-export type ImportResolutionType = "credit" | "expense" | "investment" | "ignore" | "pending";
+export type ImportResolutionType =
+  | "credit"
+  | "expense"
+  | "investment"
+  | "ignore"
+  | "pending"
+  | "salary_credit"
+  | "additional_credit"
+  | "investment_debit"
+  | "own_transfer";
 
 export type AaConsentStatus = "pending" | "active" | "revoked" | "expired";
 
@@ -28,6 +44,7 @@ export interface Database {
           id: string;
           email: string | null;
           full_name: string | null;
+          employer_name: string | null;
           default_salary_paise: number | null;
           created_at: string;
           updated_at: string;
@@ -36,6 +53,7 @@ export interface Database {
           id: string;
           email?: string | null;
           full_name?: string | null;
+          employer_name?: string | null;
           default_salary_paise?: number | null;
           created_at?: string;
           updated_at?: string;
@@ -44,6 +62,7 @@ export interface Database {
           id?: string;
           email?: string | null;
           full_name?: string | null;
+          employer_name?: string | null;
           default_salary_paise?: number | null;
           created_at?: string;
           updated_at?: string;
@@ -371,8 +390,14 @@ export interface Database {
           user_id: string;
           source_provider: string;
           source_account_masked: string | null;
+          source_filename: string | null;
           month: string | null;
+          statement_from: string | null;
+          statement_to: string | null;
+          opening_balance_paise: number | null;
+          closing_balance_paise: number | null;
           fetched_at: string;
+          committed_at: string | null;
           status: ImportBatchStatus;
           raw_count: number;
           imported_count: number;
@@ -385,8 +410,14 @@ export interface Database {
           user_id: string;
           source_provider?: string;
           source_account_masked?: string | null;
+          source_filename?: string | null;
           month?: string | null;
+          statement_from?: string | null;
+          statement_to?: string | null;
+          opening_balance_paise?: number | null;
+          closing_balance_paise?: number | null;
           fetched_at?: string;
+          committed_at?: string | null;
           status?: ImportBatchStatus;
           raw_count?: number;
           imported_count?: number;
@@ -399,8 +430,14 @@ export interface Database {
           user_id?: string;
           source_provider?: string;
           source_account_masked?: string | null;
+          source_filename?: string | null;
           month?: string | null;
+          statement_from?: string | null;
+          statement_to?: string | null;
+          opening_balance_paise?: number | null;
+          closing_balance_paise?: number | null;
           fetched_at?: string;
+          committed_at?: string | null;
           status?: ImportBatchStatus;
           raw_count?: number;
           imported_count?: number;
@@ -421,12 +458,19 @@ export interface Database {
           direction: "credit" | "debit";
           merchant_raw: string | null;
           description_raw: string | null;
+          narration_raw: string | null;
           normalized_merchant: string | null;
           detected_type: string | null;
           confidence_score: string | null;
           suggested_category_id: string | null;
+          closing_balance_paise: number | null;
           review_status: ImportedReviewStatus;
           resolution_type: ImportResolutionType;
+          resolved_category_name: string | null;
+          staging_meta: Json;
+          dedup_key: string | null;
+          linked_table: string | null;
+          linked_row_id: string | null;
           linked_expense_id: string | null;
           linked_credit_id: string | null;
           linked_investment_id: string | null;
@@ -442,12 +486,19 @@ export interface Database {
           direction: "credit" | "debit";
           merchant_raw?: string | null;
           description_raw?: string | null;
+          narration_raw?: string | null;
           normalized_merchant?: string | null;
           detected_type?: string | null;
           confidence_score?: string | null;
           suggested_category_id?: string | null;
+          closing_balance_paise?: number | null;
           review_status?: ImportedReviewStatus;
           resolution_type?: ImportResolutionType;
+          resolved_category_name?: string | null;
+          staging_meta?: Json;
+          dedup_key?: string | null;
+          linked_table?: string | null;
+          linked_row_id?: string | null;
           linked_expense_id?: string | null;
           linked_credit_id?: string | null;
           linked_investment_id?: string | null;
@@ -463,12 +514,19 @@ export interface Database {
           direction?: "credit" | "debit";
           merchant_raw?: string | null;
           description_raw?: string | null;
+          narration_raw?: string | null;
           normalized_merchant?: string | null;
           detected_type?: string | null;
           confidence_score?: string | null;
           suggested_category_id?: string | null;
+          closing_balance_paise?: number | null;
           review_status?: ImportedReviewStatus;
           resolution_type?: ImportResolutionType;
+          resolved_category_name?: string | null;
+          staging_meta?: Json;
+          dedup_key?: string | null;
+          linked_table?: string | null;
+          linked_row_id?: string | null;
           linked_expense_id?: string | null;
           linked_credit_id?: string | null;
           linked_investment_id?: string | null;

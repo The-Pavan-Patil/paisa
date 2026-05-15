@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { updateDefaultSalaryTemplate } from "@/app/actions/profile";
+import { updateDefaultSalaryTemplate, updateEmployerName } from "@/app/actions/profile";
 import { reopenMonthConfirmedForm } from "@/app/actions/monthLifecycle";
 import { monthKeyFromDate } from "@/lib/month";
 import Link from "next/link";
@@ -37,6 +37,29 @@ export default async function SettingsPage() {
         <CardContent className="text-xs text-zinc-700">
           <div>Email: {profile?.email ?? user.email}</div>
           <div className="mt-1">Name: {profile?.full_name ?? "—"}</div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Employer (import matching)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={updateEmployerName} className="space-y-2 text-xs">
+            <div className="space-y-1">
+              <Label htmlFor="employer">Employer name as it appears in bank narration</Label>
+              <Input
+                id="employer"
+                name="employer_name"
+                placeholder="e.g. ACME CORP"
+                defaultValue={profile?.employer_name ?? ""}
+              />
+            </div>
+            <Button type="submit" size="sm" variant="outline">
+              Save employer
+            </Button>
+            <p className="text-[11px] text-zinc-500">Used to classify NEFT / IMPS / UPI credits as salary when the text matches.</p>
+          </form>
         </CardContent>
       </Card>
 

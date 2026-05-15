@@ -26,3 +26,22 @@ export async function updateDefaultSalaryTemplate(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/monthly");
 }
+
+export async function updateEmployerName(formData: FormData) {
+  const name = String(formData.get("employer_name") ?? "").trim();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  await supabase
+    .from("profiles")
+    .update({ employer_name: name.length ? name : null, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  revalidatePath("/settings");
+}

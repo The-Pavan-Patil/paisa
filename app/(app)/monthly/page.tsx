@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { MonthlyBankImportButton } from "@/components/import/MonthlyBankImportButton";
 import {
   submitCloseMonthForm,
   submitCreditForm,
@@ -53,6 +54,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="sticky top-0 z-10 border border-zinc-200 bg-white p-3 shadow-sm">
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+          <MonthlyBankImportButton defaultMonth={month} />
+        </div>
         <div className="grid gap-2 md:grid-cols-4">
           <div>
             <div className="text-[11px] font-medium text-zinc-600">Salary</div>

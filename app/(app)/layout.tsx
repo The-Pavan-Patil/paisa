@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { monthKeyFromDate } from "@/lib/month";
 import { loadNotificationFlags } from "@/lib/notifications";
 import { NotificationsBanner } from "@/components/notifications-banner";
+import { AppToaster } from "@/components/app-toaster";
 import { signOut } from "@/app/actions/auth";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -53,6 +54,7 @@ export default async function AppShellLayout({ children }: { children: ReactNode
         </div>
         {flags ? <NotificationsBanner flags={flags} /> : null}
       </header>
+      <AppToaster />
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>
   );
