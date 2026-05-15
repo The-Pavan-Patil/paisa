@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { loadMonthSummaryBundle } from "@/lib/queries/monthSummary";
 import { monthKeyFromDate } from "@/lib/month";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,13 +24,11 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : monthKeyFromDate(new Date());
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) {
     return null;
   }
+  const supabase = await getSupabaseServer();
 
   const bundle = await loadMonthSummaryBundle(supabase, { userId: user.id, month });
   const s = bundle.summary;

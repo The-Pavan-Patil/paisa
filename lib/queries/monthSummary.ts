@@ -2,13 +2,23 @@ import type { DbClient } from "@/types/supabase";
 import type { Database } from "@/types/database";
 import { computeMonthSummaryFromRows } from "@/lib/calculations/monthSummary";
 import { reconciliationScoreFromBuckets } from "@/lib/calculations/reconciliation";
-import { parsePaise } from "@/lib/money";
-import { toPgMonthDate } from "@/lib/month";
+import { monthTxnDateRange, toPgMonthDate } from "@/lib/month";
+
+function pendingDebitSumPaise(
+  row: { sum: number | null } | { amount_paise: { sum: number | null } } | null | undefined,
+): number {
+  if (!row) return 0;
+  if ("sum" in row && row.sum != null) return Math.trunc(row.sum);
+  const nested = row as { amount_paise?: { sum?: number | null } };
+  if (nested.amount_paise?.sum != null) return Math.trunc(nested.amount_paise.sum);
+  return 0;
+}
 
 export async function loadMonthSummaryBundle(supabase: DbClient, params: { userId: string; month: string }) {
   const monthDate = toPgMonthDate(params.month);
+  const { from: txnFrom, toExclusive: txnToExclusive } = monthTxnDateRange(params.month);
 
-  const [salaryRes, creditsRes, expensesRes, investmentsRes, carryInRes, categoriesRes, pendingRowsRes] =
+  const [salaryRes, creditsRes, expensesRes, investmentsRes, carryInRes, categoriesRes, pendingSumRes] =
     await Promise.all([
       supabase.from("monthly_salary").select("*").eq("user_id", params.userId).eq("month", monthDate).maybeSingle(),
       supabase.from("additional_credit_entries").select("*").eq("user_id", params.userId).eq("month", monthDate),
@@ -23,10 +33,13 @@ export async function loadMonthSummaryBundle(supabase: DbClient, params: { userI
       supabase.from("categories").select("*").eq("user_id", params.userId).order("name"),
       supabase
         .from("imported_transactions")
-        .select("amount_paise")
+        .select("amount_paise.sum()")
         .eq("user_id", params.userId)
         .eq("review_status", "pending")
-        .eq("direction", "debit"),
+        .eq("direction", "debit")
+        .gte("txn_date", txnFrom)
+        .lt("txn_date", txnToExclusive)
+        .maybeSingle(),
     ]);
 
   const summary = computeMonthSummaryFromRows({
@@ -38,8 +51,7 @@ export async function loadMonthSummaryBundle(supabase: DbClient, params: { userI
   });
 
   const ledgerOutflowsPaise = summary.investmentsPaise + summary.expensesPaise;
-  const pendingSum =
-    pendingRowsRes.data?.reduce((acc, row) => acc + parsePaise(row.amount_paise as number), 0) ?? 0;
+  const pendingSum = pendingDebitSumPaise(pendingSumRes.data);
 
   const reconciliation = reconciliationScoreFromBuckets({
     ledgerOutflowsPaise,

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImportsBankPanel } from "@/components/import/ImportsBankPanel";
 import { ImportsHistoryClient, type ImportBatchRow } from "@/components/import/ImportsHistoryClient";
@@ -8,13 +8,11 @@ import type { Database } from "@/types/database";
 type ConsentRow = Database["public"]["Tables"]["aa_consents"]["Row"];
 
 export default async function ImportsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) {
     return null;
   }
+  const supabase = await getSupabaseServer();
 
   const { data: batches } = await supabase
     .from("import_batches")

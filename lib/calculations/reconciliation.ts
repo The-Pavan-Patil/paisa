@@ -2,7 +2,7 @@
  * Reconciliation score (month): how much of observed bank outflows are reflected in the ledger.
  *
  * `ledgerOutflowsPaise` — expenses + investments recorded for the month.
- * `pendingBankOutflowsPaise` — imported debit rows still in `pending` review (not ignored/resolved).
+ * `pendingBankOutflowsPaise` — pending imported debits for the month (`txn_date` in range).
  *
  * Score approaches 1 when pending bank volume shrinks relative to booked outflows.
  */

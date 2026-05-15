@@ -1,16 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { loadAnalyticsOverview } from "@/lib/queries/analyticsOverview";
 import { monthKeyFromDate } from "@/lib/month";
 import { DashboardCharts } from "@/components/dashboard-charts";
 
 export default async function AnalyticsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) {
     return null;
   }
+  const supabase = await getSupabaseServer();
 
   const endMonth = monthKeyFromDate(new Date());
   const overview = await loadAnalyticsOverview(supabase, { userId: user.id, endMonth });

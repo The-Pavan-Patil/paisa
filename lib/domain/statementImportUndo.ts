@@ -1,35 +1,22 @@
 import type { DbClient } from "@/types/supabase";
 
 const LEDGER_TABLES = new Set(["monthly_salary", "additional_credit_entries", "expense_entries", "investment_entries"]);
+const UNDO_WINDOW_MS = 7 * 86400000;
 
-export async function undoStatementImportBatch(
-  supabase: DbClient,
-  params: { userId: string; batchId: string },
-): Promise<{ ok: boolean; noop: boolean; reset?: number }> {
-  const { data: batch } = await supabase
-    .from("import_batches")
-    .select("id, status, committed_at")
-    .eq("id", params.batchId)
-    .eq("user_id", params.userId)
-    .maybeSingle();
-
-  if (!batch) {
-    return { ok: true, noop: true };
-  }
-
-  if (batch.status !== "committed") {
-    return { ok: true, noop: true };
-  }
-
-  if (!batch.committed_at) {
-    return { ok: true, noop: true };
-  }
-
-  const committedAt = new Date(batch.committed_at).getTime();
-  if (Number.isNaN(committedAt) || Date.now() - committedAt > 7 * 86400000) {
+export function assertStatementImportUndoWindow(committedAt: string | null): void {
+  if (!committedAt) {
     throw new Error("Undo is only available within 7 days of commit");
   }
+  const committedAtMs = new Date(committedAt).getTime();
+  if (Number.isNaN(committedAtMs) || Date.now() - committedAtMs > UNDO_WINDOW_MS) {
+    throw new Error("Undo is only available within 7 days of commit");
+  }
+}
 
+export async function removeStatementImportLedgerRows(
+  supabase: DbClient,
+  params: { userId: string; batchId: string },
+): Promise<number> {
   const { data: txs, error: txErr } = await supabase
     .from("imported_transactions")
     .select("id, linked_table, linked_row_id, review_status")
@@ -61,6 +48,36 @@ export async function undoStatementImportBatch(
         break;
     }
   }
+
+  return txs?.length ?? 0;
+}
+
+export async function undoStatementImportBatch(
+  supabase: DbClient,
+  params: { userId: string; batchId: string },
+): Promise<{ ok: boolean; noop: boolean; reset?: number }> {
+  const { data: batch } = await supabase
+    .from("import_batches")
+    .select("id, status, committed_at")
+    .eq("id", params.batchId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+
+  if (!batch) {
+    return { ok: true, noop: true };
+  }
+
+  if (batch.status !== "committed") {
+    return { ok: true, noop: true };
+  }
+
+  if (!batch.committed_at) {
+    return { ok: true, noop: true };
+  }
+
+  assertStatementImportUndoWindow(batch.committed_at);
+
+  const txCount = await removeStatementImportLedgerRows(supabase, params);
 
   const { error: upErr } = await supabase
     .from("imported_transactions")
@@ -94,8 +111,8 @@ export async function undoStatementImportBatch(
     entity_type: "import_batches",
     entity_id: params.batchId,
     action: "statement_import_undo",
-    old_value_json: { transaction_count: txs?.length ?? 0 } as never,
+    old_value_json: { transaction_count: txCount } as never,
   });
 
-  return { ok: true, noop: false, reset: txs?.length ?? 0 };
+  return { ok: true, noop: false, reset: txCount };
 }

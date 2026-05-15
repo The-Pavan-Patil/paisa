@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InlineAlert } from "@/components/feedback/inline-alert";
 import { cn } from "@/lib/utils";
 
 export function StatementUpload({
@@ -99,7 +100,7 @@ export function StatementUpload({
           />
         </div>
 
-        {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
+        {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 
         <Button type="button" size="sm" onClick={upload} disabled={disabled || loading || !file}>
           {loading ? "Parsing…" : "Upload & Parse"}

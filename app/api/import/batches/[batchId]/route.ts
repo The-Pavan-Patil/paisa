@@ -1,3 +1,4 @@
+import { deleteStatementImportBatch } from "@/lib/domain/statementImportDelete";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -157,4 +158,31 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ batchId: stri
   }
 
   return NextResponse.json({ transactions: updated });
+}
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ batchId: string }> }) {
+  const { batchId } = await ctx.params;
+  const parsedId = idSchema.safeParse(batchId);
+  if (!parsedId.success) {
+    return NextResponse.json({ error: "Invalid batch id" }, { status: 400 });
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const result = await deleteStatementImportBatch(supabase, { userId: user.id, batchId: parsedId.data });
+    return NextResponse.json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Delete failed";
+    if (msg.includes("7 days")) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

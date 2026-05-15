@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InlineAlert } from "@/components/feedback/inline-alert";
 
 function LoginForm() {
   const router = useRouter();
@@ -50,7 +51,7 @@ function LoginForm() {
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4">
       <Card>
         <CardHeader>
-          <CardTitle>FinTrack India</CardTitle>
+          <CardTitle>Paisa</CardTitle>
           <p className="text-xs text-zinc-600">Sign in with Supabase email + password.</p>
         </CardHeader>
         <CardContent>
@@ -76,7 +77,7 @@ function LoginForm() {
                 required
               />
             </div>
-            {error ? <p className="text-xs text-red-700">{error}</p> : null}
+            {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" disabled={loading}>
                 {mode === "signup" ? "Create account" : "Sign in"}

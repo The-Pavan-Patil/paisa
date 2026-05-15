@@ -24,3 +24,11 @@ export function addMonths(month: string, delta: number): string {
   d.setUTCMonth(d.getUTCMonth() + delta);
   return monthKeyFromDate(d);
 }
+
+/** Inclusive `txn_date` range for a month key (`from` … last day of month). */
+export function monthTxnDateRange(month: string): { from: string; toExclusive: string } {
+  return {
+    from: toPgMonthDate(month),
+    toExclusive: toPgMonthDate(addMonths(month, 1)),
+  };
+}

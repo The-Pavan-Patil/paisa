@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FinTrack India",
+  title: "Paisa",
   description: "Salary-first personal finance tracker for India",
 };
 

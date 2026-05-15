@@ -1,5 +1,6 @@
 "use client";
 
+import { showError } from "@/components/feedback/show-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,29 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
       const res = await fetch(`/api/import/batches/${id}/undo`, { method: "POST" });
       const json = (await res.json()) as { error?: string; noop?: boolean };
       if (!res.ok) {
-        alert(json.error ?? "Undo failed");
+        showError(json.error ?? "Undo failed");
         return;
       }
+      router.refresh();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function deleteBatch(id: string, committed: boolean) {
+    const message = committed
+      ? "Delete this committed batch? Ledger rows created from it will be removed and the batch will be deleted permanently."
+      : "Delete this import batch and all staged transactions? This cannot be undone.";
+    if (!confirm(message)) return;
+    setPending(true);
+    try {
+      const res = await fetch(`/api/import/batches/${id}`, { method: "DELETE" });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        showError(json.error ?? "Delete failed");
+        return;
+      }
+      if (viewId === id) setViewId(null);
       router.refresh();
     } finally {
       setPending(false);
@@ -63,6 +84,7 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
                 ? new Date(`${b.month}T12:00:00Z`).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" })
                 : "—";
               const canUndo = b.status === "committed" && withinUndoWindow(b.committed_at ?? null);
+              const canDelete = b.status !== "committed" || canUndo;
               return (
                 <tr key={b.id} className="border-t border-zinc-100">
                   <td className="px-3 py-2">{b.source_filename ?? b.source_provider}</td>
@@ -86,6 +108,21 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
                         onClick={() => void undoBatch(b.id)}
                       >
                         Undo
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] text-red-700 hover:text-red-800"
+                        disabled={!canDelete || pending}
+                        title={
+                          !canDelete
+                            ? "Committed imports older than 7 days cannot be deleted while ledger rows remain."
+                            : undefined
+                        }
+                        onClick={() => void deleteBatch(b.id, b.status === "committed")}
+                      >
+                        Delete
                       </Button>
                     </div>
                   </td>

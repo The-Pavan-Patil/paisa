@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { loadMonthSummaryBundle } from "@/lib/queries/monthSummary";
 import { loadTwelveMonthTrend } from "@/lib/queries/yearTrend";
 import { monthKeyFromDate } from "@/lib/month";
@@ -11,13 +11,11 @@ function formatInrFromPaise(paise: number) {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) {
     return null;
   }
+  const supabase = await getSupabaseServer();
 
   const month = monthKeyFromDate(new Date());
   const bundle = await loadMonthSummaryBundle(supabase, { userId: user.id, month });

@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { showError, showWarning } from "@/components/feedback/show-toast";
 import { useRouter } from "next/navigation";
 
 export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
@@ -33,7 +34,7 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
       });
       const json = (await res.json()) as { batchId?: string; error?: string };
       if (!res.ok) {
-        alert(json.error ?? "fetch failed");
+        showError(json.error ?? "fetch failed");
         return;
       }
       setBatchId(json.batchId ?? null);
@@ -52,11 +53,11 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
 
   async function resolve(resolution: "expense" | "credit" | "investment" | "ignore") {
     if (!batchId) {
-      alert("Fetch a batch first");
+      showWarning("Fetch a batch first");
       return;
     }
     if (selectedIds.length === 0) {
-      alert("No pending rows");
+      showWarning("No pending rows");
       return;
     }
     startTransition(async () => {
@@ -67,7 +68,7 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
       });
       if (!res.ok) {
         const json = (await res.json()) as { error?: string };
-        alert(json.error ?? "review failed");
+        showError(json.error ?? "review failed");
         return;
       }
       await loadBatch(batchId);
@@ -77,7 +78,7 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
 
   async function undo() {
     if (!batchId) {
-      alert("No batch selected");
+      showWarning("No batch selected");
       return;
     }
     startTransition(async () => {
@@ -88,7 +89,7 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
       });
       if (!res.ok) {
         const json = (await res.json()) as { error?: string };
-        alert(json.error ?? "undo failed");
+        showError(json.error ?? "undo failed");
         return;
       }
       setTxs([]);
