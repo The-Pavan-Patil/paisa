@@ -9,7 +9,10 @@ import { monthKeyFromDate } from "@/lib/month";
 import Link from "next/link";
 import type { Database } from "@/types/database";
 
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type ProfileRow = Pick<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "id" | "email" | "full_name" | "employer_name" | "default_salary_paise"
+>;
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -18,7 +21,11 @@ export default async function SettingsPage() {
   }
   const supabase = await getSupabaseServer();
 
-  const { data: profileRaw } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  const { data: profileRaw } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, employer_name, default_salary_paise")
+    .eq("id", user.id)
+    .maybeSingle();
   const profile = profileRaw as ProfileRow | null;
 
   return (

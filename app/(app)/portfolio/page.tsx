@@ -5,7 +5,10 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { refreshPortfolioPrices } from "@/app/actions/portfolio";
 import type { Database } from "@/types/database";
 
-type InvRow = Database["public"]["Tables"]["investment_entries"]["Row"];
+type InvRow = Pick<
+  Database["public"]["Tables"]["investment_entries"]["Row"],
+  "id" | "kind" | "amount_paise" | "current_value_paise" | "account_source" | "source" | "created_at"
+>;
 type PriceSnap = Pick<Database["public"]["Tables"]["price_snapshots"]["Row"], "as_of" | "provider">;
 
 function formatInrFromPaise(paise: number) {
@@ -21,7 +24,7 @@ export default async function PortfolioPage() {
 
   const { data: rows } = await supabase
     .from("investment_entries")
-    .select("*")
+    .select("id, kind, amount_paise, current_value_paise, account_source, source, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

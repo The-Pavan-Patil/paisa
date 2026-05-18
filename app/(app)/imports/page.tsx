@@ -1,11 +1,14 @@
 import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImportsBankPanel } from "@/components/import/ImportsBankPanel";
-import { ImportsHistoryClient, type ImportBatchRow } from "@/components/import/ImportsHistoryClient";
+import { ImportsHistoryClient, type ImportBatchListRow } from "@/components/import/ImportsHistoryClient";
 import { monthKeyFromDate } from "@/lib/month";
 import type { Database } from "@/types/database";
 
-type ConsentRow = Database["public"]["Tables"]["aa_consents"]["Row"];
+type ConsentListRow = Pick<
+  Database["public"]["Tables"]["aa_consents"]["Row"],
+  "id" | "status" | "account_mask" | "last_synced_at"
+>;
 
 export default async function ImportsPage() {
   const user = await getSessionUser();
@@ -16,15 +19,21 @@ export default async function ImportsPage() {
 
   const { data: batches } = await supabase
     .from("import_batches")
-    .select("*")
+    .select(
+      "id, source_filename, source_provider, month, created_at, status, imported_count, raw_count, committed_at",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const { data: consents } = await supabase.from("aa_consents").select("*").eq("user_id", user.id).limit(5);
+  const { data: consents } = await supabase
+    .from("aa_consents")
+    .select("id, status, account_mask, last_synced_at")
+    .eq("user_id", user.id)
+    .limit(5);
 
-  const consentRows = (consents ?? []) as ConsentRow[];
-  const batchRows = (batches ?? []) as ImportBatchRow[];
+  const consentRows = (consents ?? []) as ConsentListRow[];
+  const batchRows = (batches ?? []) as ImportBatchListRow[];
 
   return (
     <div className="space-y-4">

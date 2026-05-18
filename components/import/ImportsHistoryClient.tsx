@@ -11,6 +11,19 @@ import type { Database } from "@/types/database";
 
 export type ImportBatchRow = Database["public"]["Tables"]["import_batches"]["Row"];
 
+export type ImportBatchListRow = Pick<
+  ImportBatchRow,
+  | "id"
+  | "source_filename"
+  | "source_provider"
+  | "month"
+  | "created_at"
+  | "status"
+  | "imported_count"
+  | "raw_count"
+  | "committed_at"
+>;
+
 function statusBadge(status: string) {
   if (status === "committed") return <Badge className="text-[10px]">Committed</Badge>;
   if (status === "reviewing" || status === "reviewed") return <Badge variant="muted" className="text-[10px]">Review</Badge>;
@@ -24,7 +37,7 @@ function withinUndoWindow(committedAt: string | null): boolean {
   return Date.now() - t <= 7 * 86400000;
 }
 
-export function ImportsHistoryClient({ initialBatches }: { initialBatches: ImportBatchRow[] }) {
+export function ImportsHistoryClient({ initialBatches }: { initialBatches: ImportBatchListRow[] }) {
   const router = useRouter();
   const [viewId, setViewId] = useState<string | null>(null);
 

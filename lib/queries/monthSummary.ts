@@ -4,6 +4,34 @@ import { computeMonthSummaryFromRows } from "@/lib/calculations/monthSummary";
 import { reconciliationScoreFromBuckets } from "@/lib/calculations/reconciliation";
 import { monthTxnDateRange, toPgMonthDate } from "@/lib/month";
 
+type Tables = Database["public"]["Tables"];
+
+/** Rows and partial rows returned by `loadMonthSummaryBundle` (narrow selects). */
+export type MonthBundleSalary = Pick<Tables["monthly_salary"]["Row"], "amount_paise"> | null;
+export type MonthBundleCredit = Pick<Tables["additional_credit_entries"]["Row"], "amount_paise">;
+export type MonthBundleExpense = Pick<
+  Tables["expense_entries"]["Row"],
+  "id" | "amount_paise" | "merchant_name" | "source" | "updated_at"
+>;
+export type MonthBundleInvestment = Pick<
+  Tables["investment_entries"]["Row"],
+  "id" | "kind" | "amount_paise" | "source" | "updated_at"
+>;
+export type MonthBundleCarryIn = Pick<Tables["carry_forward_entries"]["Row"], "amount_paise"> | null;
+export type MonthBundleCategory = Pick<Tables["categories"]["Row"], "id" | "name">;
+
+export type MonthSummaryBundle = {
+  month: string;
+  monthDate: string;
+  salary: MonthBundleSalary;
+  credits: MonthBundleCredit[];
+  expenses: MonthBundleExpense[];
+  investments: MonthBundleInvestment[];
+  carryIn: MonthBundleCarryIn;
+  categories: MonthBundleCategory[];
+  summary: ReturnType<typeof computeMonthSummaryFromRows> & { reconciliationScore: number };
+};
+
 function pendingDebitSumPaise(
   row: { sum: number | null } | { amount_paise: { sum: number | null } } | null | undefined,
 ): number {
@@ -14,23 +42,31 @@ function pendingDebitSumPaise(
   return 0;
 }
 
-export async function loadMonthSummaryBundle(supabase: DbClient, params: { userId: string; month: string }) {
+export async function loadMonthSummaryBundle(supabase: DbClient, params: { userId: string; month: string }): Promise<MonthSummaryBundle> {
   const monthDate = toPgMonthDate(params.month);
   const { from: txnFrom, toExclusive: txnToExclusive } = monthTxnDateRange(params.month);
 
   const [salaryRes, creditsRes, expensesRes, investmentsRes, carryInRes, categoriesRes, pendingSumRes] =
     await Promise.all([
-      supabase.from("monthly_salary").select("*").eq("user_id", params.userId).eq("month", monthDate).maybeSingle(),
-      supabase.from("additional_credit_entries").select("*").eq("user_id", params.userId).eq("month", monthDate),
-      supabase.from("expense_entries").select("*").eq("user_id", params.userId).eq("month", monthDate),
-      supabase.from("investment_entries").select("*").eq("user_id", params.userId).eq("month", monthDate),
+      supabase.from("monthly_salary").select("amount_paise").eq("user_id", params.userId).eq("month", monthDate).maybeSingle(),
+      supabase.from("additional_credit_entries").select("amount_paise").eq("user_id", params.userId).eq("month", monthDate),
+      supabase
+        .from("expense_entries")
+        .select("id, amount_paise, merchant_name, source, updated_at")
+        .eq("user_id", params.userId)
+        .eq("month", monthDate),
+      supabase
+        .from("investment_entries")
+        .select("id, kind, amount_paise, source, updated_at")
+        .eq("user_id", params.userId)
+        .eq("month", monthDate),
       supabase
         .from("carry_forward_entries")
-        .select("*")
+        .select("amount_paise")
         .eq("user_id", params.userId)
         .eq("destination_month", monthDate)
         .maybeSingle(),
-      supabase.from("categories").select("*").eq("user_id", params.userId).order("name"),
+      supabase.from("categories").select("id, name").eq("user_id", params.userId).order("name"),
       supabase
         .from("imported_transactions")
         .select("amount_paise.sum()")
@@ -61,12 +97,12 @@ export async function loadMonthSummaryBundle(supabase: DbClient, params: { userI
   return {
     month: params.month,
     monthDate,
-    salary: salaryRes.data,
-    credits: (creditsRes.data ?? []) as Database["public"]["Tables"]["additional_credit_entries"]["Row"][],
-    expenses: (expensesRes.data ?? []) as Database["public"]["Tables"]["expense_entries"]["Row"][],
-    investments: (investmentsRes.data ?? []) as Database["public"]["Tables"]["investment_entries"]["Row"][],
-    carryIn: carryInRes.data,
-    categories: (categoriesRes.data ?? []) as Database["public"]["Tables"]["categories"]["Row"][],
+    salary: salaryRes.data as MonthBundleSalary,
+    credits: (creditsRes.data ?? []) as MonthBundleCredit[],
+    expenses: (expensesRes.data ?? []) as MonthBundleExpense[],
+    investments: (investmentsRes.data ?? []) as MonthBundleInvestment[],
+    carryIn: carryInRes.data as MonthBundleCarryIn,
+    categories: (categoriesRes.data ?? []) as MonthBundleCategory[],
     summary: {
       ...summary,
       reconciliationScore: reconciliation,

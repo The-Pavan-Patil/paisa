@@ -566,7 +566,12 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      investment_totals_by_kind: {
+        Args: { p_user_id: string };
+        Returns: { kind: InvestmentKind; total_paise: number }[];
+      };
+    };
     Enums: {
       investment_kind: InvestmentKind;
       ledger_source: LedgerSource;
