@@ -2,7 +2,7 @@ import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { updateDefaultSalaryTemplate, updateEmployerName } from "@/app/actions/profile";
 import { reopenMonthConfirmedForm } from "@/app/actions/monthLifecycle";
 import { monthKeyFromDate } from "@/lib/month";
@@ -53,9 +53,9 @@ export default async function SettingsPage() {
                 defaultValue={profile?.employer_name ?? ""}
               />
             </div>
-            <Button type="submit" size="sm" variant="outline">
+            <SubmitButton size="sm" variant="outline" pendingLabel="Saving…">
               Save employer
-            </Button>
+            </SubmitButton>
             <p className="text-[11px] text-zinc-500">Used to classify NEFT / IMPS / UPI credits as salary when the text matches.</p>
           </form>
         </CardContent>
@@ -78,9 +78,9 @@ export default async function SettingsPage() {
                 required
               />
             </div>
-            <Button type="submit" size="sm" variant="outline">
+            <SubmitButton size="sm" variant="outline" pendingLabel="Saving…">
               Save template
-            </Button>
+            </SubmitButton>
             <p className="text-[11px] text-zinc-500">Prefill for future months can be wired to Monthly Entry.</p>
           </form>
         </CardContent>
@@ -122,9 +122,9 @@ export default async function SettingsPage() {
           <form action={reopenMonthConfirmedForm} className="space-y-2">
             <Label htmlFor="reopenMonth">Month (YYYY-MM)</Label>
             <Input id="reopenMonth" name="month" defaultValue={monthKeyFromDate(new Date())} required />
-            <Button type="submit" size="sm" variant="outline">
+            <SubmitButton size="sm" variant="outline" pendingLabel="Reopening…">
               Reopen month (confirm)
-            </Button>
+            </SubmitButton>
           </form>
           <p className="text-[11px] text-zinc-500">
             For a safer flow, call `GET /api/months/[month]/reopen?preview=1` before POSTing with confirm.

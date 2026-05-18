@@ -1,6 +1,7 @@
 "use client";
 
 import { showError } from "@/components/feedback/show-toast";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -26,43 +27,34 @@ function withinUndoWindow(committedAt: string | null): boolean {
 export function ImportsHistoryClient({ initialBatches }: { initialBatches: ImportBatchRow[] }) {
   const router = useRouter();
   const [viewId, setViewId] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
 
-  async function undoBatch(id: string) {
+  const { run: undoBatch, pending: undoPending } = useAsyncAction(async (id: string) => {
     if (!confirm("Undo this import? Ledger rows created from this batch will be removed.")) return;
-    setPending(true);
-    try {
-      const res = await fetch(`/api/import/batches/${id}/undo`, { method: "POST" });
-      const json = (await res.json()) as { error?: string; noop?: boolean };
-      if (!res.ok) {
-        showError(json.error ?? "Undo failed");
-        return;
-      }
-      router.refresh();
-    } finally {
-      setPending(false);
+    const res = await fetch(`/api/import/batches/${id}/undo`, { method: "POST" });
+    const json = (await res.json()) as { error?: string; noop?: boolean };
+    if (!res.ok) {
+      showError(json.error ?? "Undo failed");
+      return;
     }
-  }
+    router.refresh();
+  });
 
-  async function deleteBatch(id: string, committed: boolean) {
+  const { run: deleteBatch, pending: deletePending } = useAsyncAction(async (id: string, committed: boolean) => {
     const message = committed
       ? "Delete this committed batch? Ledger rows created from it will be removed and the batch will be deleted permanently."
       : "Delete this import batch and all staged transactions? This cannot be undone.";
     if (!confirm(message)) return;
-    setPending(true);
-    try {
-      const res = await fetch(`/api/import/batches/${id}`, { method: "DELETE" });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        showError(json.error ?? "Delete failed");
-        return;
-      }
-      if (viewId === id) setViewId(null);
-      router.refresh();
-    } finally {
-      setPending(false);
+    const res = await fetch(`/api/import/batches/${id}`, { method: "DELETE" });
+    const json = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      showError(json.error ?? "Delete failed");
+      return;
     }
-  }
+    if (viewId === id) setViewId(null);
+    router.refresh();
+  });
+
+  const pending = undoPending || deletePending;
 
   return (
     <>

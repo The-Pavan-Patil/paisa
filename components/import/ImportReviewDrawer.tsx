@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,7 +74,6 @@ export function ImportReviewDrawer({
   onCommitted?: () => void;
 }) {
   const [tab, setTab] = useState<"credits" | "expenses">("credits");
-  const [loading, setLoading] = useState(false);
   const [batchMonth, setBatchMonth] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const [txs, setTxs] = useState<TxRow[]>([]);
@@ -84,40 +84,37 @@ export function ImportReviewDrawer({
 
   const load = useCallback(async () => {
     if (!batchId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/import/batches/${batchId}`);
-      const json = (await res.json()) as {
-        batch?: { month: string | null; status?: string };
-        transactions?: TxRow[];
-        categories?: CategoryRow[];
+    const res = await fetch(`/api/import/batches/${batchId}`);
+    const json = (await res.json()) as {
+      batch?: { month: string | null; status?: string };
+      transactions?: TxRow[];
+      categories?: CategoryRow[];
+    };
+    if (!res.ok) return;
+    setBatchMonth(json.batch?.month ?? null);
+    setBatchStatus(json.batch?.status ?? null);
+    const list = json.transactions ?? [];
+    setTxs(list);
+    setCategories(json.categories ?? []);
+    const next: Record<string, { checked: boolean; type: string; category: string; fundName: string }> = {};
+    for (const t of list) {
+      const meta = t.staging_meta;
+      const fund = stagingFundName(meta);
+      next[t.id] = {
+        checked: t.review_status === "pending",
+        type: t.resolution_type || "pending",
+        category: t.resolved_category_name ?? t.detected_type ?? "Other",
+        fundName: fund,
       };
-      if (!res.ok) return;
-      setBatchMonth(json.batch?.month ?? null);
-      setBatchStatus(json.batch?.status ?? null);
-      const list = json.transactions ?? [];
-      setTxs(list);
-      setCategories(json.categories ?? []);
-      const next: Record<string, { checked: boolean; type: string; category: string; fundName: string }> = {};
-      for (const t of list) {
-        const meta = t.staging_meta;
-        const fund = stagingFundName(meta);
-        next[t.id] = {
-          checked: t.review_status === "pending",
-          type: t.resolution_type || "pending",
-          category: t.resolved_category_name ?? t.detected_type ?? "Other",
-          fundName: fund,
-        };
-      }
-      setRowState(next);
-    } finally {
-      setLoading(false);
     }
+    setRowState(next);
   }, [batchId]);
 
+  const { run: runLoad, pending: loadPending } = useAsyncAction(load);
+
   useEffect(() => {
-    if (open && batchId) void load();
-  }, [open, batchId, load]);
+    if (open && batchId) void runLoad();
+  }, [open, batchId, runLoad]);
 
   const credits = useMemo(() => txs.filter((t) => t.direction === "credit"), [txs]);
   const expenses = useMemo(() => txs.filter((t) => t.direction === "debit"), [txs]);
@@ -138,7 +135,7 @@ export function ImportReviewDrawer({
     return `${c} credits · ${e} expenses · ${inv} investments · ${dup} duplicates skipped`;
   }, [txs, rowState]);
 
-  async function importSelected() {
+  const { run: importSelected, pending: commitPending } = useAsyncAction(async () => {
     if (!batchId) return;
     const selectedIds = txs.filter((t) => rowState[t.id]?.checked && t.review_status !== "duplicate").map((t) => t.id);
     if (!selectedIds.length) {
@@ -170,51 +167,48 @@ export function ImportReviewDrawer({
       }
     }
 
-    setLoading(true);
-    try {
-      const patchRes = await fetch(`/api/import/batches/${batchId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(patchBody),
-      });
-      if (!patchRes.ok) {
-        const j = (await patchRes.json()) as { error?: unknown };
-        toast.error(typeof j.error === "string" ? j.error : "Update failed");
-        return;
-      }
-
-      const commitRes = await fetch(`/api/import/batches/${batchId}/commit`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transactionIds: selectedIds }),
-      });
-      const commitJson = (await commitRes.json()) as {
-        committed?: number;
-        requiresFundNameFor?: string[];
-        salaryReroutedToAdditionalCredit?: boolean;
-        error?: string;
-      };
-
-      if (!commitRes.ok) {
-        if (commitJson.requiresFundNameFor?.length) {
-          toast.error("Enter fund names for highlighted investment rows");
-          return;
-        }
-        toast.error(commitJson.error ?? "Commit failed");
-        return;
-      }
-
-      const n = commitJson.committed ?? 0;
-      toast.success(`${n} transaction${n === 1 ? "" : "s"} imported`);
-      if (commitJson.salaryReroutedToAdditionalCredit) {
-        toast("A salary was already set for this month. An amount was added as Additional Credit instead. Review if needed.");
-      }
-      onOpenChange(false);
-      onCommitted?.();
-    } finally {
-      setLoading(false);
+    const patchRes = await fetch(`/api/import/batches/${batchId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(patchBody),
+    });
+    if (!patchRes.ok) {
+      const j = (await patchRes.json()) as { error?: unknown };
+      toast.error(typeof j.error === "string" ? j.error : "Update failed");
+      return;
     }
-  }
+
+    const commitRes = await fetch(`/api/import/batches/${batchId}/commit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transactionIds: selectedIds }),
+    });
+    const commitJson = (await commitRes.json()) as {
+      committed?: number;
+      requiresFundNameFor?: string[];
+      salaryReroutedToAdditionalCredit?: boolean;
+      error?: string;
+    };
+
+    if (!commitRes.ok) {
+      if (commitJson.requiresFundNameFor?.length) {
+        toast.error("Enter fund names for highlighted investment rows");
+        return;
+      }
+      toast.error(commitJson.error ?? "Commit failed");
+      return;
+    }
+
+    const n = commitJson.committed ?? 0;
+    toast.success(`${n} transaction${n === 1 ? "" : "s"} imported`);
+    if (commitJson.salaryReroutedToAdditionalCredit) {
+      toast("A salary was already set for this month. An amount was added as Additional Credit instead. Review if needed.");
+    }
+    onOpenChange(false);
+    onCommitted?.();
+  });
+
+  const loading = loadPending || commitPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -408,8 +402,8 @@ export function ImportReviewDrawer({
           <div className="w-full text-[11px] text-zinc-600">{summaryLine}</div>
           <div className="flex w-full flex-wrap gap-2">
             {batchStatus !== "committed" ? (
-              <Button type="button" size="sm" className="flex-1" onClick={importSelected} disabled={loading}>
-                Import Selected
+              <Button type="button" size="sm" className="flex-1" onClick={() => void importSelected()} disabled={loading}>
+                {commitPending ? "Importing…" : "Import Selected"}
               </Button>
             ) : (
               <p className="w-full text-[11px] text-zinc-500">This batch is already committed. Use Undo from the imports list (within 7 days) to reverse.</p>

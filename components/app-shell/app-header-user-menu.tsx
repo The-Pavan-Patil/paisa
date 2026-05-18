@@ -2,6 +2,7 @@
 
 import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,12 +32,14 @@ export function AppHeaderUserMenu({ email }: { email: string }) {
           }}
         >
           <form action={signOut} className="w-full">
-            <button
-              type="submit"
-              className="w-full cursor-default rounded-sm px-2 py-1.5 text-left text-sm outline-none hover:bg-zinc-100 focus:bg-zinc-100"
+            <SubmitButton
+              variant="ghost"
+              size="sm"
+              pendingLabel="Signing out…"
+              className="h-auto w-full justify-start rounded-sm px-2 py-1.5 text-left text-sm font-normal hover:bg-zinc-100"
             >
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         </DropdownMenuItem>
       </DropdownMenuContent>

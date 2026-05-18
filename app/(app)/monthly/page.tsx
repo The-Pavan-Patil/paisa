@@ -4,6 +4,7 @@ import { monthKeyFromDate } from "@/lib/month";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -95,9 +96,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
             <input type="hidden" name="month" value={month} />
             <div className="text-xs font-medium">Set salary (INR)</div>
             <Input name="rupees" type="number" step="0.01" placeholder="e.g. 85000" required />
-            <Button type="submit" size="sm">
+            <SubmitButton size="sm" pendingLabel="Saving…">
               Save salary
-            </Button>
+            </SubmitButton>
           </form>
 
           <form action={submitCreditForm} className="space-y-2 rounded-md border border-zinc-200 p-3">
@@ -105,9 +106,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
             <div className="text-xs font-medium">Add credit (INR)</div>
             <Input name="rupees" type="number" step="0.01" required />
             <Input name="description" placeholder="Bonus, reimbursement…" />
-            <Button type="submit" size="sm" variant="outline">
+            <SubmitButton size="sm" variant="outline" pendingLabel="Adding…">
               Add credit
-            </Button>
+            </SubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -152,9 +153,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
                 <Input name="scheme" placeholder="mfapi.in scheme code" />
               </div>
             </div>
-            <Button type="submit" size="sm">
+            <SubmitButton size="sm" pendingLabel="Adding…">
               Add investment
-            </Button>
+            </SubmitButton>
           </form>
 
           <div className="overflow-x-auto rounded-md border border-zinc-200">
@@ -204,9 +205,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
                 <Input name="merchant" placeholder="Optional" />
               </div>
             </div>
-            <Button type="submit" size="sm">
+            <SubmitButton size="sm" pendingLabel="Adding…">
               Add expense
-            </Button>
+            </SubmitButton>
           </form>
 
           <div className="overflow-x-auto rounded-md border border-zinc-200">
@@ -242,9 +243,9 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
           <p>Closing generates carry-forward into the next month and locks this month.</p>
           <form action={submitCloseMonthForm}>
             <input type="hidden" name="month" value={month} />
-            <Button type="submit" variant="outline" size="sm">
+            <SubmitButton variant="outline" size="sm" pendingLabel="Closing…">
               Close month
-            </Button>
+            </SubmitButton>
           </form>
         </CardContent>
       </Card>

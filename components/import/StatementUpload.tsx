@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,6 @@ export function StatementUpload({
   const [month, setMonth] = useState(defaultMonth);
   const [file, setFile] = useState<File | null>(null);
   const [drag, setDrag] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,28 +34,23 @@ export function StatementUpload({
     if (f) setFile(f);
   }, []);
 
-  async function upload() {
+  const { run: upload, pending: loading } = useAsyncAction(async () => {
     if (!file) {
       setError("Choose a file");
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      const fd = new FormData();
-      fd.set("file", file);
-      fd.set("month", `${month}-01`);
-      const res = await fetch("/api/import/upload", { method: "POST", body: fd });
-      const json = (await res.json()) as { batchId?: string; error?: string };
-      if (!res.ok) {
-        setError(json.error ?? "Upload failed");
-        return;
-      }
-      if (json.batchId) onUploaded(json.batchId);
-    } finally {
-      setLoading(false);
+    const fd = new FormData();
+    fd.set("file", file);
+    fd.set("month", `${month}-01`);
+    const res = await fetch("/api/import/upload", { method: "POST", body: fd });
+    const json = (await res.json()) as { batchId?: string; error?: string };
+    if (!res.ok) {
+      setError(json.error ?? "Upload failed");
+      return;
     }
-  }
+    if (json.batchId) onUploaded(json.batchId);
+  });
 
   return (
     <Card>
@@ -102,7 +97,7 @@ export function StatementUpload({
 
         {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 
-        <Button type="button" size="sm" onClick={upload} disabled={disabled || loading || !file}>
+        <Button type="button" size="sm" onClick={() => void upload()} disabled={disabled || loading || !file}>
           {loading ? "Parsing…" : "Upload & Parse"}
         </Button>
       </CardContent>

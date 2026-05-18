@@ -1,7 +1,7 @@
 import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { refreshPortfolioPrices } from "@/app/actions/portfolio";
 import type { Database } from "@/types/database";
 
@@ -72,9 +72,9 @@ export default async function PortfolioPage() {
       </div>
 
       <form action={refreshPortfolioPrices}>
-        <Button type="submit" size="sm" variant="outline">
+        <SubmitButton size="sm" variant="outline" pendingLabel="Refreshing…">
           Refresh prices
-        </Button>
+        </SubmitButton>
       </form>
 
       <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">

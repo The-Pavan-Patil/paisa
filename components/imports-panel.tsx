@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { showError, showWarning } from "@/components/feedback/show-toast";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { useRouter } from "next/navigation";
 
 export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
@@ -21,29 +22,8 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
       review_status: string;
     }>
   >([]);
-  const [pending, startTransition] = useTransition();
 
   const selectedIds = useMemo(() => txs.filter((t) => t.review_status === "pending").map((t) => t.id), [txs]);
-
-  async function runFetch() {
-    startTransition(async () => {
-      const res = await fetch("/api/imports/fetch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ month }),
-      });
-      const json = (await res.json()) as { batchId?: string; error?: string };
-      if (!res.ok) {
-        showError(json.error ?? "fetch failed");
-        return;
-      }
-      setBatchId(json.batchId ?? null);
-      if (json.batchId) {
-        await loadBatch(json.batchId);
-      }
-      router.refresh();
-    });
-  }
 
   async function loadBatch(id: string) {
     const res = await fetch(`/api/imports/batches/${id}`);
@@ -51,7 +31,30 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
     setTxs(json.transactions ?? []);
   }
 
-  async function resolve(resolution: "expense" | "credit" | "investment" | "ignore") {
+  const { run: runFetch, pending: fetchPending } = useAsyncAction(async () => {
+    const res = await fetch("/api/imports/fetch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ month }),
+    });
+    const json = (await res.json()) as { batchId?: string; error?: string };
+    if (!res.ok) {
+      showError(json.error ?? "fetch failed");
+      return;
+    }
+    setBatchId(json.batchId ?? null);
+    if (json.batchId) {
+      await loadBatch(json.batchId);
+    }
+    router.refresh();
+  });
+
+  const { run: runReload, pending: reloadPending } = useAsyncAction(async () => {
+    if (!batchId) return;
+    await loadBatch(batchId);
+  });
+
+  const { run: runResolve, pending: resolvePending } = useAsyncAction(async (resolution: "expense" | "credit" | "investment" | "ignore") => {
     if (!batchId) {
       showWarning("Fetch a batch first");
       return;
@@ -60,43 +63,41 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
       showWarning("No pending rows");
       return;
     }
-    startTransition(async () => {
-      const res = await fetch("/api/imports/review", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transactionIds: selectedIds, resolution }),
-      });
-      if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        showError(json.error ?? "review failed");
-        return;
-      }
-      await loadBatch(batchId);
-      router.refresh();
+    const res = await fetch("/api/imports/review", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transactionIds: selectedIds, resolution }),
     });
-  }
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string };
+      showError(json.error ?? "review failed");
+      return;
+    }
+    await loadBatch(batchId);
+    router.refresh();
+  });
 
-  async function undo() {
+  const { run: runUndo, pending: undoPending } = useAsyncAction(async () => {
     if (!batchId) {
       showWarning("No batch selected");
       return;
     }
-    startTransition(async () => {
-      const res = await fetch("/api/imports/undo", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ batchId }),
-      });
-      if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        showError(json.error ?? "undo failed");
-        return;
-      }
-      setTxs([]);
-      setBatchId(null);
-      router.refresh();
+    const res = await fetch("/api/imports/undo", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ batchId }),
     });
-  }
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string };
+      showError(json.error ?? "undo failed");
+      return;
+    }
+    setTxs([]);
+    setBatchId(null);
+    router.refresh();
+  });
+
+  const pending = fetchPending || reloadPending || resolvePending || undoPending;
 
   return (
     <Card>
@@ -109,13 +110,13 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
             <div className="font-medium text-zinc-700">Month</div>
             <Input value={month} onChange={(e) => setMonth(e.target.value)} className="w-40" />
           </div>
-          <Button type="button" size="sm" onClick={runFetch} disabled={pending}>
+          <Button type="button" size="sm" onClick={() => void runFetch()} disabled={pending}>
             Fetch stub batch
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => batchId && loadBatch(batchId)} disabled={!batchId || pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runReload()} disabled={!batchId || pending}>
             Reload batch
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={undo} disabled={!batchId || pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runUndo()} disabled={!batchId || pending}>
             Undo batch
           </Button>
         </div>
@@ -148,16 +149,16 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => resolve("expense")} disabled={pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runResolve("expense")} disabled={pending}>
             Import debits as expenses
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => resolve("credit")} disabled={pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runResolve("credit")} disabled={pending}>
             Import credits
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => resolve("investment")} disabled={pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runResolve("investment")} disabled={pending}>
             Import debits as investments
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => resolve("ignore")} disabled={pending}>
+          <Button type="button" size="sm" variant="outline" onClick={() => void runResolve("ignore")} disabled={pending}>
             Ignore pending
           </Button>
         </div>

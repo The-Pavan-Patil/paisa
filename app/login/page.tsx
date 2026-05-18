@@ -1,8 +1,10 @@
 "use client";
 
+import { authCallbackUrl } from "@/lib/auth/site-url";
 import { createClient } from "@/lib/supabase/client";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,35 +19,50 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(
+    searchParams.get("error") === "auth_callback"
+      ? "Email confirmation failed. Try signing in or request a new link."
+      : searchParams.get("error") === "missing_code"
+        ? "Invalid confirmation link."
+        : null,
+  );
+  const [notice, setNotice] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  const submit = useCallback(async () => {
     setError(null);
+    setNotice(null);
     const supabase = createClient();
 
     if (mode === "signup") {
-      const { error: err } = await supabase.auth.signUp({ email, password });
+      const { error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: authCallbackUrl(next),
+        },
+      });
       if (err) {
         setError(err.message);
-        setLoading(false);
         return;
       }
-    } else {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) {
-        setError(err.message);
-        setLoading(false);
-        return;
-      }
+      setNotice("Check your email to confirm your account, then sign in.");
+      return;
+    }
+
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err) {
+      setError(err.message);
+      return;
     }
 
     router.replace(next);
     router.refresh();
-    setLoading(false);
-  }
+  }, [email, mode, next, password, router]);
+
+  const { run: onSubmit, pending } = useAsyncAction(async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submit();
+  });
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4">
@@ -64,6 +81,7 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={pending}
               />
             </div>
             <div className="space-y-1">
@@ -75,14 +93,21 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={pending}
               />
             </div>
+            {notice ? <InlineAlert variant="info">{notice}</InlineAlert> : null}
             {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" disabled={loading}>
-                {mode === "signup" ? "Create account" : "Sign in"}
+              <Button type="submit" disabled={pending}>
+                {pending ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setMode(mode === "signup" ? "signin" : "signup")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+              >
                 {mode === "signup" ? "Have an account?" : "Need an account?"}
               </Button>
             </div>
