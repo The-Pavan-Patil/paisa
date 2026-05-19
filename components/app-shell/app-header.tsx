@@ -9,20 +9,26 @@ export const appNavItems: AppNavItem[] = [
   { href: "/portfolio", label: "Portfolio" },
   { href: "/analytics", label: "Analytics" },
   { href: "/imports", label: "Imports & Review" },
-  { href: "/settings", label: "Settings" },
 ];
 
 export function AppHeader() {
   return (
     <header className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <Link href="/dashboard" className="shrink-0 text-base font-semibold tracking-tight text-zinc-950">
+      <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
+        <Link
+          href="/dashboard"
+          className="justify-self-start text-lg font-semibold tracking-tight text-zinc-950"
+        >
           Paisa
         </Link>
-        <AppNav items={appNavItems} />
-        <Suspense fallback={<div className="h-8 w-28 shrink-0 animate-pulse rounded-md bg-zinc-100" />}>
-          <AppHeaderUser />
-        </Suspense>
+        <div className="flex min-w-0 items-center justify-center">
+          <AppNav items={appNavItems} />
+        </div>
+        <div className="flex justify-end">
+          <Suspense fallback={<div className="h-8 w-28 shrink-0 animate-pulse rounded-md bg-zinc-100" />}>
+            <AppHeaderUser />
+          </Suspense>
+        </div>
       </div>
       <Suspense fallback={null}>
         <NotificationsBannerLoader />

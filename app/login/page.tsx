@@ -16,6 +16,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
 
+  const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -34,11 +35,17 @@ function LoginForm() {
     const supabase = createClient();
 
     if (mode === "signup") {
+      const trimmedName = userName.trim();
+      if (!trimmedName) {
+        setError("User name is required.");
+        return;
+      }
       const { error: err } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: authCallbackUrl(next),
+          data: { user_name: trimmedName, full_name: trimmedName },
         },
       });
       if (err) {
@@ -57,7 +64,7 @@ function LoginForm() {
 
     router.replace(next);
     router.refresh();
-  }, [email, mode, next, password, router]);
+  }, [email, mode, next, password, router, userName]);
 
   const { run: onSubmit, pending } = useAsyncAction(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +80,19 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form className="space-y-3" onSubmit={onSubmit}>
+            {mode === "signup" ? (
+              <div className="space-y-1">
+                <Label htmlFor="userName">User name</Label>
+                <Input
+                  id="userName"
+                  autoComplete="name"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  required
+                  disabled={pending}
+                />
+              </div>
+            ) : null}
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
               <Input

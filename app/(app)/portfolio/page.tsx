@@ -1,6 +1,7 @@
 import { getSessionUser, getSupabaseServer } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { refreshPortfolioPrices } from "@/app/actions/portfolio";
 import type { Database } from "@/types/database";
@@ -69,7 +70,7 @@ export default async function PortfolioPage() {
           </CardHeader>
           <CardContent className="text-xs text-zinc-700">
             {latestPrice?.as_of ? new Date(latestPrice.as_of).toLocaleString() : "—"}
-            {latestPrice?.provider ? <div className="text-[11px] text-zinc-500">{latestPrice.provider}</div> : null}
+            {latestPrice?.provider ? <div className="text-xs text-zinc-500">{latestPrice.provider}</div> : null}
           </CardContent>
         </Card>
       </div>
@@ -80,32 +81,30 @@ export default async function PortfolioPage() {
         </SubmitButton>
       </form>
 
-      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-zinc-50 text-zinc-600">
-            <tr>
-              <th className="px-3 py-2">Kind</th>
-              <th className="px-3 py-2">Principal</th>
-              <th className="px-3 py-2">Current</th>
-              <th className="px-3 py-2">Account</th>
-              <th className="px-3 py-2">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(invRows ?? []).map((r) => (
-              <tr key={r.id} className="border-t border-zinc-100">
-                <td className="px-3 py-2">
-                  <Badge variant="muted">{r.kind}</Badge>
-                </td>
-                <td className="px-3 py-2">{formatInrFromPaise(r.amount_paise)}</td>
-                <td className="px-3 py-2">{formatInrFromPaise(r.current_value_paise ?? r.amount_paise)}</td>
-                <td className="px-3 py-2">{r.account_source ?? "—"}</td>
-                <td className="px-3 py-2">{r.source}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="border-0 hover:bg-transparent">
+            <TableHead>Kind</TableHead>
+            <TableHead>Principal</TableHead>
+            <TableHead>Current</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead>Source</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(invRows ?? []).map((r) => (
+            <TableRow key={r.id}>
+              <TableCell>
+                <Badge variant="muted">{r.kind}</Badge>
+              </TableCell>
+              <TableCell className="tabular-nums">{formatInrFromPaise(r.amount_paise)}</TableCell>
+              <TableCell className="tabular-nums">{formatInrFromPaise(r.current_value_paise ?? r.amount_paise)}</TableCell>
+              <TableCell className="max-w-[12rem] truncate">{r.account_source ?? "—"}</TableCell>
+              <TableCell>{r.source}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { showError, showWarning } from "@/components/feedback/show-toast";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { useRouter } from "next/navigation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
   const router = useRouter();
@@ -121,32 +122,32 @@ export function ImportsPanel({ defaultMonth }: { defaultMonth: string }) {
           </Button>
         </div>
 
-        {batchId ? <div className="text-[11px] text-zinc-600">Active batch: {batchId}</div> : null}
+        {batchId ? <div className="text-xs text-zinc-600">Active batch: {batchId}</div> : null}
 
-        <div className="overflow-x-auto rounded-md border border-zinc-200">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-50 text-zinc-600">
-              <tr>
-                <th className="px-3 py-2">Txn date</th>
-                <th className="px-3 py-2">Dir</th>
-                <th className="px-3 py-2">Amount (paise)</th>
-                <th className="px-3 py-2">Merchant</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {txs.map((t) => (
-                <tr key={t.id} className="border-t border-zinc-100">
-                  <td className="px-3 py-2">{t.txn_date}</td>
-                  <td className="px-3 py-2">{t.direction}</td>
-                  <td className="px-3 py-2">{t.amount_paise}</td>
-                  <td className="px-3 py-2">{t.merchant_raw ?? "—"}</td>
-                  <td className="px-3 py-2">{t.review_status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-0 hover:bg-transparent">
+              <TableHead>Txn date</TableHead>
+              <TableHead>Dir</TableHead>
+              <TableHead>Amount (paise)</TableHead>
+              <TableHead>Merchant</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {txs.map((t) => (
+              <TableRow key={t.id}>
+                <TableCell className="whitespace-nowrap">{t.txn_date}</TableCell>
+                <TableCell>{t.direction}</TableCell>
+                <TableCell className="tabular-nums">{t.amount_paise}</TableCell>
+                <TableCell className="max-w-[14rem] truncate" title={t.merchant_raw ?? undefined}>
+                  {t.merchant_raw ?? "—"}
+                </TableCell>
+                <TableCell>{t.review_status}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => void runResolve("expense")} disabled={pending}>

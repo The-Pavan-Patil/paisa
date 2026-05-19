@@ -85,7 +85,7 @@ export function StatementUpload({
           onClick={() => document.getElementById("stmt-file")?.click()}
         >
           <p>{file ? file.name : "Drop file here or click to browse"}</p>
-          <p className="mt-1 text-[11px] text-zinc-500">.xls · .xlsx · .csv</p>
+          <p className="mt-1 text-xs text-zinc-500">.xls · .xlsx · .csv</p>
           <input
             id="stmt-file"
             type="file"

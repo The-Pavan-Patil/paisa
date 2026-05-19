@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ImportReviewDrawer } from "@/components/import/ImportReviewDrawer";
 import type { Database } from "@/types/database";
 
@@ -71,72 +72,65 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
 
   return (
     <>
-      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-zinc-50 text-zinc-600">
-            <tr>
-              <th className="px-3 py-2">File</th>
-              <th className="px-3 py-2">Month</th>
-              <th className="px-3 py-2">Uploaded</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Imported / Total</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {initialBatches.map((b) => {
-              const monthLabel = b.month
-                ? new Date(`${b.month}T12:00:00Z`).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" })
-                : "—";
-              const canUndo = b.status === "committed" && withinUndoWindow(b.committed_at ?? null);
-              const canDelete = b.status !== "committed" || canUndo;
-              return (
-                <tr key={b.id} className="border-t border-zinc-100">
-                  <td className="px-3 py-2">{b.source_filename ?? b.source_provider}</td>
-                  <td className="px-3 py-2">{monthLabel}</td>
-                  <td className="px-3 py-2">{new Date(b.created_at).toLocaleString()}</td>
-                  <td className="px-3 py-2">{statusBadge(b.status)}</td>
-                  <td className="px-3 py-2">
-                    {b.imported_count} / {b.raw_count}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setViewId(b.id)}>
-                        View
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[11px]"
-                        disabled={!canUndo || pending}
-                        onClick={() => void undoBatch(b.id)}
-                      >
-                        Undo
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[11px] text-red-700 hover:text-red-800"
-                        disabled={!canDelete || pending}
-                        title={
-                          !canDelete
-                            ? "Committed imports older than 7 days cannot be deleted while ledger rows remain."
-                            : undefined
-                        }
-                        onClick={() => void deleteBatch(b.id, b.status === "committed")}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="border-0 hover:bg-transparent">
+            <TableHead>File</TableHead>
+            <TableHead>Month</TableHead>
+            <TableHead>Uploaded</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Imported / Total</TableHead>
+            <TableHead className="min-w-[12rem]">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {initialBatches.map((b) => {
+            const monthLabel = b.month
+              ? new Date(`${b.month}T12:00:00Z`).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" })
+              : "—";
+            const canUndo = b.status === "committed" && withinUndoWindow(b.committed_at ?? null);
+            const canDelete = b.status !== "committed" || canUndo;
+            return (
+              <TableRow key={b.id}>
+                <TableCell className="max-w-[14rem] truncate" title={b.source_filename ?? b.source_provider}>
+                  {b.source_filename ?? b.source_provider}
+                </TableCell>
+                <TableCell>{monthLabel}</TableCell>
+                <TableCell className="whitespace-nowrap text-zinc-600">{new Date(b.created_at).toLocaleString()}</TableCell>
+                <TableCell>{statusBadge(b.status)}</TableCell>
+                <TableCell className="tabular-nums">
+                  {b.imported_count} / {b.raw_count}
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-wrap gap-1">
+                    <Button type="button" size="sm" variant="outline" onClick={() => setViewId(b.id)}>
+                      View
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" disabled={!canUndo || pending} onClick={() => void undoBatch(b.id)}>
+                      Undo
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-red-700 hover:text-red-800"
+                      disabled={!canDelete || pending}
+                      title={
+                        !canDelete
+                          ? "Committed imports older than 7 days cannot be deleted while ledger rows remain."
+                          : undefined
+                      }
+                      onClick={() => void deleteBatch(b.id, b.status === "committed")}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
       <ImportReviewDrawer
         batchId={viewId}
         open={!!viewId}

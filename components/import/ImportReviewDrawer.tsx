@@ -300,7 +300,7 @@ export function ImportReviewDrawer({
 
                         <div className="grid gap-2 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <div className="text-[11px] text-zinc-500">Type</div>
+                            <div className="text-xs text-zinc-500">Type</div>
                             <Select
                               value={st?.type ?? "pending"}
                               disabled={dup || ro}
@@ -330,7 +330,7 @@ export function ImportReviewDrawer({
                           </div>
 
                           <div className="space-y-1">
-                            <div className="text-[11px] text-zinc-500">Category</div>
+                            <div className="text-xs text-zinc-500">Category</div>
                             <Select
                               value={st?.category ?? "Other"}
                               disabled={dup || ro || st?.type === "investment_debit" || st?.type === "own_transfer" || st?.type === "ignore"}
@@ -370,7 +370,7 @@ export function ImportReviewDrawer({
 
                         {(needsFund || st?.type === "investment_debit") && !dup && !ro ? (
                           <div className="space-y-1">
-                            <div className="text-[11px] text-zinc-500">Fund name?</div>
+                            <div className="text-xs text-zinc-500">Fund name?</div>
                             <Input
                               placeholder="e.g. Parag Parikh Flexi Cap"
                               value={st?.fundName ?? ""}
@@ -399,14 +399,14 @@ export function ImportReviewDrawer({
         </div>
 
         <SheetFooter className="gap-2">
-          <div className="w-full text-[11px] text-zinc-600">{summaryLine}</div>
+          <div className="w-full text-xs text-zinc-600">{summaryLine}</div>
           <div className="flex w-full flex-wrap gap-2">
             {batchStatus !== "committed" ? (
               <Button type="button" size="sm" className="flex-1" onClick={() => void importSelected()} disabled={loading}>
                 {commitPending ? "Importing…" : "Import Selected"}
               </Button>
             ) : (
-              <p className="w-full text-[11px] text-zinc-500">This batch is already committed. Use Undo from the imports list (within 7 days) to reverse.</p>
+              <p className="w-full text-xs text-zinc-500">This batch is already committed. Use Undo from the imports list (within 7 days) to reverse.</p>
             )}
             <Button type="button" size="sm" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel

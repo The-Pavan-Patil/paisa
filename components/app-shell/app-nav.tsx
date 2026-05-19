@@ -11,7 +11,7 @@ export function AppNav({ items }: { items: AppNavItem[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+    <nav className="flex min-w-0 items-center justify-center gap-2 overflow-x-auto">
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (

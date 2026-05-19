@@ -45,3 +45,27 @@ export async function updateEmployerName(formData: FormData) {
 
   revalidatePath("/settings");
 }
+
+export async function updateUserName(formData: FormData) {
+  const name = String(formData.get("user_name") ?? "").trim();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  await supabase
+    .from("profiles")
+    .update({ full_name: name.length ? name : null, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  await supabase.auth.updateUser({
+    data: { user_name: name.length ? name : null, full_name: name.length ? name : null },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+}

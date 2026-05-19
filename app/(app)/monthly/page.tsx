@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 import { MonthlyBankImportButton } from "@/components/import/MonthlyBankImportButton";
 import {
@@ -58,21 +59,21 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="grid gap-2 md:grid-cols-4">
           <div>
-            <div className="text-[11px] font-medium text-zinc-600">Salary</div>
+            <div className="text-xs font-medium text-zinc-600">Salary</div>
             <div className="text-sm font-semibold">{formatInrFromPaise(s.salaryPaise)}</div>
           </div>
           <div>
-            <div className="text-[11px] font-medium text-zinc-600">Credits</div>
+            <div className="text-xs font-medium text-zinc-600">Credits</div>
             <div className="text-sm font-semibold">{formatInrFromPaise(s.additionalCreditsPaise)}</div>
           </div>
           <div>
-            <div className="text-[11px] font-medium text-zinc-600">Outflows</div>
+            <div className="text-xs font-medium text-zinc-600">Outflows</div>
             <div className="text-sm font-semibold">
               {formatInrFromPaise(s.investmentsPaise + s.expensesPaise)}
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-medium text-zinc-600">Remaining (computed)</div>
+            <div className="text-xs font-medium text-zinc-600">Remaining (computed)</div>
             <div className="text-sm font-semibold">{formatInrFromPaise(s.remainingBalancePaise)}</div>
           </div>
         </div>
@@ -158,28 +159,26 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
             </SubmitButton>
           </form>
 
-          <div className="overflow-x-auto rounded-md border border-zinc-200">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-50 text-zinc-600">
-                <tr>
-                  <th className="px-3 py-2">Kind</th>
-                  <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Source</th>
-                  <th className="px-3 py-2">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bundle.investments.map((row) => (
-                  <tr key={row.id} className="border-t border-zinc-100">
-                    <td className="px-3 py-2">{row.kind}</td>
-                    <td className="px-3 py-2">{formatInrFromPaise(row.amount_paise)}</td>
-                    <td className="px-3 py-2">{row.source}</td>
-                    <td className="px-3 py-2">{new Date(row.updated_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-0 hover:bg-transparent">
+                <TableHead>Kind</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bundle.investments.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>{row.kind}</TableCell>
+                  <TableCell className="tabular-nums">{formatInrFromPaise(row.amount_paise)}</TableCell>
+                  <TableCell>{row.source}</TableCell>
+                  <TableCell className="whitespace-nowrap text-zinc-600">{new Date(row.updated_at).toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TabsContent>
 
         <TabsContent value="expenses" className="space-y-3">
@@ -210,28 +209,28 @@ export default async function MonthlyPage({ searchParams }: { searchParams: Prom
             </SubmitButton>
           </form>
 
-          <div className="overflow-x-auto rounded-md border border-zinc-200">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-50 text-zinc-600">
-                <tr>
-                  <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Merchant</th>
-                  <th className="px-3 py-2">Source</th>
-                  <th className="px-3 py-2">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bundle.expenses.map((row) => (
-                  <tr key={row.id} className="border-t border-zinc-100">
-                    <td className="px-3 py-2">{formatInrFromPaise(row.amount_paise)}</td>
-                    <td className="px-3 py-2">{row.merchant_name ?? "—"}</td>
-                    <td className="px-3 py-2">{row.source}</td>
-                    <td className="px-3 py-2">{new Date(row.updated_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-0 hover:bg-transparent">
+                <TableHead>Amount</TableHead>
+                <TableHead>Merchant</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bundle.expenses.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="tabular-nums">{formatInrFromPaise(row.amount_paise)}</TableCell>
+                  <TableCell className="max-w-[14rem] truncate" title={row.merchant_name ?? undefined}>
+                    {row.merchant_name ?? "—"}
+                  </TableCell>
+                  <TableCell>{row.source}</TableCell>
+                  <TableCell className="whitespace-nowrap text-zinc-600">{new Date(row.updated_at).toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </TabsContent>
       </Tabs>
 
