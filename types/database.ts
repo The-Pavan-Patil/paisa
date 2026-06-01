@@ -34,8 +34,6 @@ export type ImportResolutionType =
   | "investment_debit"
   | "own_transfer";
 
-export type AaConsentStatus = "pending" | "active" | "revoked" | "expired";
-
 export interface Database {
   public: {
     Tables: {
@@ -345,45 +343,6 @@ export interface Database {
         };
         Relationships: [];
       };
-      aa_consents: {
-        Row: {
-          id: string;
-          user_id: string;
-          status: AaConsentStatus;
-          consent_handle: string | null;
-          fip_id: string | null;
-          account_mask: string | null;
-          last_synced_at: string | null;
-          raw_metadata: Json | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          status?: AaConsentStatus;
-          consent_handle?: string | null;
-          fip_id?: string | null;
-          account_mask?: string | null;
-          last_synced_at?: string | null;
-          raw_metadata?: Json | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          status?: AaConsentStatus;
-          consent_handle?: string | null;
-          fip_id?: string | null;
-          account_mask?: string | null;
-          last_synced_at?: string | null;
-          raw_metadata?: Json | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
       import_batches: {
         Row: {
           id: string;
@@ -578,7 +537,6 @@ export interface Database {
       import_batch_status: ImportBatchStatus;
       imported_review_status: ImportedReviewStatus;
       import_resolution_type: ImportResolutionType;
-      aa_consent_status: AaConsentStatus;
     };
     CompositeTypes: Record<string, never>;
   };

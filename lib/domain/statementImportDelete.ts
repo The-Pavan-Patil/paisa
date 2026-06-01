@@ -23,7 +23,8 @@ export async function deleteStatementImportBatch(
   let ledgerRowCount = 0;
   if (batch.status === "committed") {
     assertStatementImportUndoWindow(batch.committed_at);
-    ledgerRowCount = await removeStatementImportLedgerRows(supabase, params);
+    const summary = await removeStatementImportLedgerRows(supabase, params);
+    ledgerRowCount = summary.removedLedgerRows.length;
   }
 
   const { error: delErr } = await supabase

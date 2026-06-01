@@ -330,15 +330,17 @@ export function parseHdfcXls(
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) {
-    return emptyStatement("HDFC BANK");
+    return emptyStatement("");
   }
   const ws = wb.Sheets[sheetName];
   if (!ws) {
-    return emptyStatement("HDFC BANK");
+    return emptyStatement("");
   }
 
   const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "", raw: false }) as unknown[][];
-  const bankName = cellStr(rows[0]?.[0]) || "HDFC BANK";
+  // AUDIT L3: keep the raw signature cell so the upload route can verify it
+  // without re-running XLSX.read just to peek at cell A1.
+  const bankName = cellStr(rows[0]?.[0]);
   const accountHolder = extractAccountHolder(rows);
   const range = extractStatementRange(rows);
 

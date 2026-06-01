@@ -2,16 +2,27 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { monthKeySchema } from "@/lib/validation/schemas";
+import {
+  addCreditInputSchema,
+  addExpenseInputSchema,
+  addInvestmentInputSchema,
+  upsertSalaryInputSchema,
+  monthKeySchema,
+} from "@/lib/validation/schemas";
 import { toPgMonthDate } from "@/lib/month";
 import { rupeesToPaise } from "@/lib/money";
 import type { InvestmentKind } from "@/types/database";
 import { closeMonth } from "@/lib/domain/month";
 
+function firstZodMessage(err: import("zod").ZodError): string {
+  const issue = err.issues[0];
+  return issue?.message ?? "Invalid input";
+}
+
 export async function upsertSalary(month: string, rupees: number) {
-  const mk = monthKeySchema.safeParse(month);
-  if (!mk.success) {
-    throw new Error("Invalid month");
+  const parsed = upsertSalaryInputSchema.safeParse({ month, rupees });
+  if (!parsed.success) {
+    throw new Error(firstZodMessage(parsed.error));
   }
   const supabase = await createClient();
   const {
@@ -24,8 +35,8 @@ export async function upsertSalary(month: string, rupees: number) {
   await supabase.from("monthly_salary").upsert(
     {
       user_id: user.id,
-      month: toPgMonthDate(mk.data),
-      amount_paise: rupeesToPaise(rupees),
+      month: toPgMonthDate(parsed.data.month),
+      amount_paise: rupeesToPaise(parsed.data.rupees),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,month" },
@@ -36,9 +47,9 @@ export async function upsertSalary(month: string, rupees: number) {
 }
 
 export async function addCredit(month: string, rupees: number, description: string) {
-  const mk = monthKeySchema.safeParse(month);
-  if (!mk.success) {
-    throw new Error("Invalid month");
+  const parsed = addCreditInputSchema.safeParse({ month, rupees, description });
+  if (!parsed.success) {
+    throw new Error(firstZodMessage(parsed.error));
   }
   const supabase = await createClient();
   const {
@@ -50,9 +61,9 @@ export async function addCredit(month: string, rupees: number, description: stri
 
   await supabase.from("additional_credit_entries").insert({
     user_id: user.id,
-    month: toPgMonthDate(mk.data),
-    amount_paise: rupeesToPaise(rupees),
-    description,
+    month: toPgMonthDate(parsed.data.month),
+    amount_paise: rupeesToPaise(parsed.data.rupees),
+    description: parsed.data.description,
     source: "manual",
   });
 
@@ -61,9 +72,9 @@ export async function addCredit(month: string, rupees: number, description: stri
 }
 
 export async function addExpense(month: string, rupees: number, merchant: string, categoryId: string) {
-  const mk = monthKeySchema.safeParse(month);
-  if (!mk.success) {
-    throw new Error("Invalid month");
+  const parsed = addExpenseInputSchema.safeParse({ month, rupees, merchant, categoryId });
+  if (!parsed.success) {
+    throw new Error(firstZodMessage(parsed.error));
   }
   const supabase = await createClient();
   const {
@@ -75,10 +86,10 @@ export async function addExpense(month: string, rupees: number, merchant: string
 
   await supabase.from("expense_entries").insert({
     user_id: user.id,
-    month: toPgMonthDate(mk.data),
-    amount_paise: rupeesToPaise(rupees),
-    merchant_name: merchant,
-    category_id: categoryId,
+    month: toPgMonthDate(parsed.data.month),
+    amount_paise: rupeesToPaise(parsed.data.rupees),
+    merchant_name: parsed.data.merchant,
+    category_id: parsed.data.categoryId,
     source: "manual",
   });
 
@@ -93,9 +104,9 @@ export async function addInvestment(
   accountSource: string,
   schemeCode?: string,
 ) {
-  const mk = monthKeySchema.safeParse(month);
-  if (!mk.success) {
-    throw new Error("Invalid month");
+  const parsed = addInvestmentInputSchema.safeParse({ month, rupees, kind, accountSource, schemeCode });
+  if (!parsed.success) {
+    throw new Error(firstZodMessage(parsed.error));
   }
   const supabase = await createClient();
   const {
@@ -107,11 +118,11 @@ export async function addInvestment(
 
   await supabase.from("investment_entries").insert({
     user_id: user.id,
-    month: toPgMonthDate(mk.data),
-    amount_paise: rupeesToPaise(rupees),
-    kind,
-    account_source: accountSource,
-    scheme_code: schemeCode ?? null,
+    month: toPgMonthDate(parsed.data.month),
+    amount_paise: rupeesToPaise(parsed.data.rupees),
+    kind: parsed.data.kind,
+    account_source: parsed.data.accountSource,
+    scheme_code: parsed.data.schemeCode ?? null,
     source: "manual",
   });
 

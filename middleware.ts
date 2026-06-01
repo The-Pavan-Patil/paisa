@@ -52,7 +52,7 @@ export async function middleware(request: NextRequest) {
 
   if (isApi) {
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: { message: "Unauthorized", code: "unauthorized" } }, { status: 401 });
     }
     return supabaseResponse;
   }
@@ -62,6 +62,23 @@ export async function middleware(request: NextRequest) {
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // AUDIT M6: a valid JWT isn't enough -- if the user's profile row was deleted
+  // (or never seeded), every RLS-bound query downstream will silently return
+  // empty results. Send them back to /login with a reason instead.
+  if (user && isProtectedPage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!profile) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("reason", "profile_missing");
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   if (user && isAuthRoute) {

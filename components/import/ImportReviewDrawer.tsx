@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { paiseToRupees } from "@/lib/money";
+import { stagingFundName, stagingRequiresFund } from "@/lib/domain/stagingMeta";
 
 type CategoryRow = { id: string; name: string; is_expense: boolean };
 
@@ -33,15 +34,6 @@ const CREDIT_CATEGORIES = ["Salary", "UPI Transfer Received", "IMPS Received", "
 
 const RESOLUTION_TYPES_CREDIT = ["salary_credit", "additional_credit", "own_transfer", "ignore", "pending"] as const;
 const RESOLUTION_TYPES_DEBIT = ["expense", "investment_debit", "own_transfer", "ignore", "pending"] as const;
-
-function stagingRequiresFund(meta: Record<string, unknown> | null): boolean {
-  return meta?.requires_fund_name === true;
-}
-
-function stagingFundName(meta: Record<string, unknown> | null): string {
-  const v = meta?.fund_name;
-  return typeof v === "string" ? v : "";
-}
 
 function typeBadgeLabel(t: string): string {
   switch (t) {
@@ -99,7 +91,7 @@ export function ImportReviewDrawer({
     const next: Record<string, { checked: boolean; type: string; category: string; fundName: string }> = {};
     for (const t of list) {
       const meta = t.staging_meta;
-      const fund = stagingFundName(meta);
+      const fund = stagingFundName(meta) ?? "";
       next[t.id] = {
         checked: t.review_status === "pending",
         type: t.resolution_type || "pending",
@@ -173,29 +165,45 @@ export function ImportReviewDrawer({
       body: JSON.stringify(patchBody),
     });
     if (!patchRes.ok) {
-      const j = (await patchRes.json()) as { error?: unknown };
-      toast.error(typeof j.error === "string" ? j.error : "Update failed");
+      const j = (await patchRes.json()) as { error?: { message?: string } };
+      toast.error(j.error?.message ?? "Update failed");
       return;
     }
 
-    const commitRes = await fetch(`/api/import/batches/${batchId}/commit`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ transactionIds: selectedIds }),
-    });
-    const commitJson = (await commitRes.json()) as {
+    const commit = async (confirmSalaryReroute: boolean) =>
+      fetch(`/api/import/batches/${batchId}/commit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ transactionIds: selectedIds, confirmSalaryReroute }),
+      });
+
+    let commitRes = await commit(false);
+    let commitJson = (await commitRes.json()) as {
       committed?: number;
       requiresFundNameFor?: string[];
       salaryReroutedToAdditionalCredit?: boolean;
-      error?: string;
+      salaryWillBeReroutedFor?: string[];
+      error?: { message?: string; code?: string };
     };
+
+    // AUDIT M3: the server flags a pending reroute with code='salary_reroute_pending'.
+    // Ask the user to confirm, then retry with confirmSalaryReroute=true.
+    if (commitRes.status === 409 && commitJson.error?.code === "salary_reroute_pending") {
+      const msg = commitJson.error.message ?? "A salary will be rerouted. Continue?";
+      if (!confirm(`${msg}\n\nProceed?`)) {
+        toast("Commit cancelled");
+        return;
+      }
+      commitRes = await commit(true);
+      commitJson = (await commitRes.json()) as typeof commitJson;
+    }
 
     if (!commitRes.ok) {
       if (commitJson.requiresFundNameFor?.length) {
         toast.error("Enter fund names for highlighted investment rows");
         return;
       }
-      toast.error(commitJson.error ?? "Commit failed");
+      toast.error(commitJson.error?.message ?? "Commit failed");
       return;
     }
 
@@ -263,7 +271,7 @@ export function ImportReviewDrawer({
                                   checked: t.review_status === "pending",
                                   type: t.resolution_type,
                                   category: t.resolved_category_name ?? "Other",
-                                  fundName: stagingFundName(t.staging_meta),
+                                  fundName: stagingFundName(t.staging_meta) ?? "",
                                 };
                                 return { ...prev, [t.id]: { ...cur, checked: e.target.checked } };
                               })
@@ -310,7 +318,7 @@ export function ImportReviewDrawer({
                                     checked: t.review_status === "pending",
                                     type: t.resolution_type,
                                     category: t.resolved_category_name ?? "Other",
-                                    fundName: stagingFundName(t.staging_meta),
+                                    fundName: stagingFundName(t.staging_meta) ?? "",
                                   };
                                   return { ...prev, [t.id]: { ...cur, type: v } };
                                 })
@@ -340,7 +348,7 @@ export function ImportReviewDrawer({
                                     checked: t.review_status === "pending",
                                     type: t.resolution_type,
                                     category: t.resolved_category_name ?? "Other",
-                                    fundName: stagingFundName(t.staging_meta),
+                                    fundName: stagingFundName(t.staging_meta) ?? "",
                                   };
                                   return { ...prev, [t.id]: { ...cur, category: v } };
                                 })
@@ -380,7 +388,7 @@ export function ImportReviewDrawer({
                                     checked: t.review_status === "pending",
                                     type: t.resolution_type,
                                     category: t.resolved_category_name ?? "Other",
-                                    fundName: stagingFundName(t.staging_meta),
+                                    fundName: stagingFundName(t.staging_meta) ?? "",
                                   };
                                   return { ...prev, [t.id]: { ...cur, fundName: e.target.value } };
                                 })

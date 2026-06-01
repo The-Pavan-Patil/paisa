@@ -13,10 +13,18 @@ export function assertStatementImportUndoWindow(committedAt: string | null): voi
   }
 }
 
+// AUDIT M10: returns the imported_transaction ids and (table, row) pairs that
+// were actually unwound, so the audit row can capture them for forensics.
+export type UndoLedgerRemovalSummary = {
+  importedTransactionIds: string[];
+  removedLedgerRows: { table: string; id: string }[];
+  totalImportedTransactions: number;
+};
+
 export async function removeStatementImportLedgerRows(
   supabase: DbClient,
   params: { userId: string; batchId: string },
-): Promise<number> {
+): Promise<UndoLedgerRemovalSummary> {
   const { data: txs, error: txErr } = await supabase
     .from("imported_transactions")
     .select("id, linked_table, linked_row_id, review_status")
@@ -27,10 +35,14 @@ export async function removeStatementImportLedgerRows(
     throw new Error(txErr.message);
   }
 
+  const importedTransactionIds: string[] = [];
+  const removedLedgerRows: { table: string; id: string }[] = [];
+
   for (const tx of txs ?? []) {
     if (tx.review_status !== "imported" || !tx.linked_table || !tx.linked_row_id) continue;
     if (!LEDGER_TABLES.has(tx.linked_table)) continue;
     const id = tx.linked_row_id;
+    importedTransactionIds.push(tx.id);
     switch (tx.linked_table) {
       case "monthly_salary":
         await supabase.from("monthly_salary").delete().eq("id", id);
@@ -47,9 +59,14 @@ export async function removeStatementImportLedgerRows(
       default:
         break;
     }
+    removedLedgerRows.push({ table: tx.linked_table, id });
   }
 
-  return txs?.length ?? 0;
+  return {
+    importedTransactionIds,
+    removedLedgerRows,
+    totalImportedTransactions: txs?.length ?? 0,
+  };
 }
 
 export async function undoStatementImportBatch(
@@ -77,7 +94,7 @@ export async function undoStatementImportBatch(
 
   assertStatementImportUndoWindow(batch.committed_at);
 
-  const txCount = await removeStatementImportLedgerRows(supabase, params);
+  const summary = await removeStatementImportLedgerRows(supabase, params);
 
   const { error: upErr } = await supabase
     .from("imported_transactions")
@@ -106,13 +123,18 @@ export async function undoStatementImportBatch(
     .eq("id", params.batchId)
     .eq("user_id", params.userId);
 
+  // AUDIT M10: capture which staging rows + ledger rows were unwound, not just a count.
   await supabase.from("audit_events").insert({
     user_id: params.userId,
     entity_type: "import_batches",
     entity_id: params.batchId,
     action: "statement_import_undo",
-    old_value_json: { transaction_count: txCount } as never,
+    old_value_json: {
+      transaction_count: summary.totalImportedTransactions,
+      imported_transaction_ids: summary.importedTransactionIds,
+      ledger_rows_removed: summary.removedLedgerRows,
+    } as never,
   });
 
-  return { ok: true, noop: false, reset: txCount };
+  return { ok: true, noop: false, reset: summary.totalImportedTransactions };
 }

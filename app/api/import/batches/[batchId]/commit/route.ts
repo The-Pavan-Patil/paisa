@@ -1,32 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import { commitStatementImportBatch } from "@/lib/domain/statementImportCommit";
+import { stagingFundName, stagingRequiresFund } from "@/lib/domain/stagingMeta";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { badRequest, notFound, unauthorized } from "@/lib/http/error";
 
 const idSchema = z.string().uuid();
 
 const bodySchema = z.object({
   transactionIds: z.array(z.string().uuid()).min(1),
+  // AUDIT M3: client must opt-in to salary→additional_credit rerouting.
+  confirmSalaryReroute: z.boolean().optional(),
 });
-
-function stagingFundName(meta: unknown): string | null {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
-  const o = meta as Record<string, unknown>;
-  const v = o.fund_name;
-  return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
-}
-
-function stagingRequiresFund(meta: unknown): boolean {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false;
-  const o = meta as Record<string, unknown>;
-  return o.requires_fund_name === true;
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ batchId: string }> }) {
   const { batchId } = await ctx.params;
   const parsedId = idSchema.safeParse(batchId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid batch id" }, { status: 400 });
+    return badRequest("Invalid batch id", { code: "invalid_id" });
   }
 
   const supabase = await createClient();
@@ -34,7 +26,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { data: batch, error: bErr } = await supabase
@@ -45,20 +37,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
     .maybeSingle();
 
   if (bErr || !batch) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return notFound();
   }
 
   if (batch.status === "committed") {
-    return NextResponse.json({ error: "Batch already committed" }, { status: 400 });
+    return badRequest("Batch already committed", { code: "already_committed" });
   }
 
   if (!batch.month) {
-    return NextResponse.json({ error: "Batch has no target month" }, { status: 400 });
+    return badRequest("Batch has no target month", { code: "missing_month" });
   }
 
   const parsedBody = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsedBody.success) {
-    return NextResponse.json({ error: parsedBody.error.flatten() }, { status: 400 });
+    return badRequest("Invalid commit body", {
+      code: "invalid_body",
+      details: parsedBody.error.flatten(),
+    });
   }
 
   const { data: preTxs } = await supabase
@@ -80,7 +75,58 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
     }
   }
   if (requiresFundNameFor.length > 0) {
-    return NextResponse.json({ committed: 0, skipped: 0, requiresFundNameFor, salaryReroutedToAdditionalCredit: false }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: {
+          message: "Fund names required for some investment rows",
+          code: "requires_fund_name",
+          details: { requiresFundNameFor },
+        },
+        committed: 0,
+        skipped: 0,
+        requiresFundNameFor,
+        salaryReroutedToAdditionalCredit: false,
+      },
+      { status: 400 },
+    );
+  }
+
+  // AUDIT M3: detect salary→additional_credit reroute before committing so the user can
+  // explicitly confirm. The conditions that trigger rerouting in the RPC are:
+  //   (a) monthly_salary already exists for this month, or
+  //   (b) the commit contains 2+ salary_credit rows (only the first can use the slot).
+  const pendingSalaryIds = (preTxs ?? [])
+    .filter((t) => t.resolution_type === "salary_credit" && t.review_status !== "duplicate" && t.review_status !== "imported")
+    .map((t) => t.id);
+
+  if (pendingSalaryIds.length > 0 && !parsedBody.data.confirmSalaryReroute) {
+    const { data: existingSalary } = await supabase
+      .from("monthly_salary")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("month", batch.month)
+      .maybeSingle();
+    const willReroute =
+      (existingSalary?.id && pendingSalaryIds.length >= 1) || pendingSalaryIds.length > 1;
+    if (willReroute) {
+      const rerouteIds = existingSalary?.id ? pendingSalaryIds : pendingSalaryIds.slice(1);
+      return NextResponse.json(
+        {
+          error: {
+            message:
+              "A salary already exists for this month (or this commit has multiple salary credits). Confirm to route the extras to Additional Credits.",
+            code: "salary_reroute_pending",
+            details: { salaryWillBeReroutedFor: rerouteIds },
+          },
+          committed: 0,
+          skipped: 0,
+          requiresFundNameFor: [],
+          salaryReroutedToAdditionalCredit: false,
+          salaryWillBeReroutedFor: rerouteIds,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const outcome = await commitStatementImportBatch(supabase, {
@@ -91,7 +137,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
   });
 
   if (outcome.requiresFundNameFor.length > 0) {
-    return NextResponse.json(outcome, { status: 400 });
+    return NextResponse.json(
+      {
+        error: {
+          message: "Fund names required for some investment rows",
+          code: "requires_fund_name",
+          details: { requiresFundNameFor: outcome.requiresFundNameFor },
+        },
+        ...outcome,
+      },
+      { status: 400 },
+    );
   }
 
   await supabase
@@ -112,10 +168,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
     new_value_json: outcome as never,
   });
 
+  // AUDIT M4: keep server-rendered views in sync after a successful commit.
+  revalidatePath("/dashboard");
+  revalidatePath("/monthly");
+  revalidatePath("/imports");
+
   return NextResponse.json({
     committed: outcome.committed,
     skipped: outcome.skipped,
     requiresFundNameFor: outcome.requiresFundNameFor,
     salaryReroutedToAdditionalCredit: outcome.salaryReroutedToAdditionalCredit,
+    // AUDIT M2: ids the caller asked us to commit that the RPC never saw.
+    requestedButNotFound: outcome.requestedButNotFound,
   });
 }

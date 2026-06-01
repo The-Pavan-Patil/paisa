@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildCsv } from "@/lib/export/csv";
 import { monthKeyFromDate, toPgMonthDate } from "@/lib/month";
+import { badRequest, unauthorized } from "@/lib/http/error";
 
 const querySchema = z.object({
   kind: z.enum(["month", "year", "expenses", "investments", "credits"]),
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const url = new URL(req.url);
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return badRequest("Invalid query", { code: "invalid_query", details: parsed.error.flatten() });
   }
 
   const { kind, month, year } = parsed.data;
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
     const m = month ?? monthKeyFromDate(new Date());
     const mk = monthKeySchema.safeParse(m);
     if (!mk.success) {
-      return NextResponse.json({ error: "Invalid month" }, { status: 400 });
+      return badRequest("Invalid month", { code: "invalid_month" });
     }
     const bundle = await loadMonthSummaryBundle(supabase, { userId: user.id, month: mk.data });
     const csv = buildCsv(

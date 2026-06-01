@@ -2,7 +2,9 @@ import { deleteStatementImportBatch } from "@/lib/domain/statementImportDelete";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Database, Json } from "@/types/database";
+import type { Database } from "@/types/database";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/http/error";
+import { mergeFundName } from "@/lib/domain/stagingMeta";
 
 type ImportedTxnUpdate = Database["public"]["Tables"]["imported_transactions"]["Update"];
 
@@ -30,30 +32,11 @@ const patchItemSchema = z.object({
 
 const patchBodySchema = z.array(patchItemSchema).min(1);
 
-function mergeStagingMeta(
-  existing: unknown,
-  fundName: string | null | undefined,
-): Json {
-  const base =
-    existing && typeof existing === "object" && !Array.isArray(existing)
-      ? { ...(existing as Record<string, unknown>) }
-      : {};
-  if (fundName !== undefined) {
-    if (fundName && fundName.trim()) {
-      base.fund_name = fundName.trim();
-      base.requires_fund_name = false;
-    } else {
-      base.fund_name = null;
-    }
-  }
-  return base as Json;
-}
-
 export async function GET(_req: Request, ctx: { params: Promise<{ batchId: string }> }) {
   const { batchId } = await ctx.params;
   const parsed = idSchema.safeParse(batchId);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid batch id" }, { status: 400 });
+    return badRequest("Invalid batch id", { code: "invalid_id" });
   }
 
   const supabase = await createClient();
@@ -61,7 +44,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ batchId: strin
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { data: batch, error: bErr } = await supabase
@@ -72,7 +55,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ batchId: strin
     .maybeSingle();
 
   if (bErr || !batch) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return notFound();
   }
 
   const { data: txs, error: tErr } = await supabase
@@ -83,7 +66,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ batchId: strin
     .order("txn_date", { ascending: true });
 
   if (tErr) {
-    return NextResponse.json({ error: tErr.message }, { status: 500 });
+    return serverError(tErr.message, { code: "tx_query_failed" });
   }
 
   const { data: categories } = await supabase
@@ -99,7 +82,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ batchId: stri
   const { batchId } = await ctx.params;
   const parsedId = idSchema.safeParse(batchId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid batch id" }, { status: 400 });
+    return badRequest("Invalid batch id", { code: "invalid_id" });
   }
 
   const supabase = await createClient();
@@ -107,7 +90,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ batchId: stri
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { data: batch } = await supabase
@@ -118,13 +101,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ batchId: stri
     .maybeSingle();
 
   if (!batch) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return notFound();
   }
 
   const body = await req.json().catch(() => null);
   const parsed = patchBodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    return badRequest("Invalid patch body", {
+      code: "invalid_body",
+      details: parsed.error.flatten(),
+    });
   }
 
   const updated: unknown[] = [];
@@ -140,7 +126,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ batchId: stri
 
     if (!row) continue;
 
-    const patch: ImportedTxnUpdate = { staging_meta: mergeStagingMeta(row.staging_meta, item.fund_name) };
+    const patch: ImportedTxnUpdate = { staging_meta: mergeFundName(row.staging_meta, item.fund_name) };
     if (item.review_status !== undefined) patch.review_status = item.review_status;
     if (item.resolved_type !== undefined) patch.resolution_type = item.resolved_type;
     if (item.resolved_category !== undefined) patch.resolved_category_name = item.resolved_category;
@@ -164,7 +150,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ batchId: st
   const { batchId } = await ctx.params;
   const parsedId = idSchema.safeParse(batchId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid batch id" }, { status: 400 });
+    return badRequest("Invalid batch id", { code: "invalid_id" });
   }
 
   const supabase = await createClient();
@@ -172,7 +158,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ batchId: st
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   try {
@@ -181,8 +167,8 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ batchId: st
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Delete failed";
     if (msg.includes("7 days")) {
-      return NextResponse.json({ error: msg }, { status: 400 });
+      return badRequest(msg, { code: "undo_window_expired" });
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return serverError(msg, { code: "delete_failed" });
   }
 }

@@ -45,9 +45,9 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
   const { run: undoBatch, pending: undoPending } = useAsyncAction(async (id: string) => {
     if (!confirm("Undo this import? Ledger rows created from this batch will be removed.")) return;
     const res = await fetch(`/api/import/batches/${id}/undo`, { method: "POST" });
-    const json = (await res.json()) as { error?: string; noop?: boolean };
+    const json = (await res.json()) as { error?: { message?: string }; noop?: boolean };
     if (!res.ok) {
-      showError(json.error ?? "Undo failed");
+      showError(json.error?.message ?? "Undo failed");
       return;
     }
     router.refresh();
@@ -59,9 +59,9 @@ export function ImportsHistoryClient({ initialBatches }: { initialBatches: Impor
       : "Delete this import batch and all staged transactions? This cannot be undone.";
     if (!confirm(message)) return;
     const res = await fetch(`/api/import/batches/${id}`, { method: "DELETE" });
-    const json = (await res.json()) as { error?: string };
+    const json = (await res.json()) as { error?: { message?: string } };
     if (!res.ok) {
-      showError(json.error ?? "Delete failed");
+      showError(json.error?.message ?? "Delete failed");
       return;
     }
     if (viewId === id) setViewId(null);

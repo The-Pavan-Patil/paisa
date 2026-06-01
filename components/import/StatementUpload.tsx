@@ -23,6 +23,10 @@ export function StatementUpload({
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // AUDIT L5: month is uncontrolled-with-default. If the page changes its idea
+  // of "current month" (e.g. user navigates to a different month context), we
+  // reset the local input. In-progress edits are clobbered intentionally so the
+  // form doesn't desync from the surrounding page state.
   useEffect(() => {
     setMonth(defaultMonth);
   }, [defaultMonth]);
@@ -44,9 +48,9 @@ export function StatementUpload({
     fd.set("file", file);
     fd.set("month", `${month}-01`);
     const res = await fetch("/api/import/upload", { method: "POST", body: fd });
-    const json = (await res.json()) as { batchId?: string; error?: string };
+    const json = (await res.json()) as { batchId?: string; error?: { message?: string } };
     if (!res.ok) {
-      setError(json.error ?? "Upload failed");
+      setError(json.error?.message ?? "Upload failed");
       return;
     }
     if (json.batchId) onUploaded(json.batchId);

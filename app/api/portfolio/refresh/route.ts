@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { runPriceRefreshForUser } from "@/lib/domain/pricing";
 import { NextResponse } from "next/server";
+import { unauthorized } from "@/lib/http/error";
 
 export async function POST() {
   const supabase = await createClient();
@@ -8,7 +9,7 @@ export async function POST() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const updated = await runPriceRefreshForUser(supabase, user.id);
